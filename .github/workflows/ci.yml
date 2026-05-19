@@ -1,0 +1,53 @@
+name: CI/CD - quality checks & build
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v3
+
+      - name: setup node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 24
+
+      - name: install dependencies
+        run: npm ci
+
+      - name: run type-check
+        run: npm run type-check
+
+      - name: run lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: run tests
+        run: npm run test
+
+  build:
+    name: Build
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v3
+
+      - name: setup node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 24
+
+      - name: install dependencies
+        run: npm ci
+
+      - name: build
+        run: npm run build
