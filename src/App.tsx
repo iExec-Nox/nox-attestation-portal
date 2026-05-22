@@ -1,5 +1,7 @@
+import { AttestationPortal } from './attestation/components/AttestationPortal.tsx'
+
 function App() {
-  return <div>App</div>
+  return <AttestationPortal />
 }
 
 export default App
