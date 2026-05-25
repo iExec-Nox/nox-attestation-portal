@@ -4,7 +4,9 @@ import type {
   RtmrValues,
   PhalaVerifyResponse,
   EventLogEntry,
+  QuoteApiResponse,
 } from '../types/index.ts'
+import { parseEventLog } from '../types/index.ts'
 import { replayRtmr3 } from './rtmr-replay.ts'
 import { fetchQuote, fetchAppInfo } from './quote-service.ts'
 import { bytesToHex } from '../../shared/lib/utils.ts'
@@ -22,15 +24,16 @@ export const STEP_DEFINITIONS = [
   },
   {
     name: 'RTMR values',
-    description: 'Compare RTMR0–RTMR3 measurements against expected golden values.',
+    description: 'RTMR0–3 extracted from quote',
   },
   {
-    name: 'RTMR3 replay',
-    description: 'Re-derive RTMR3 by replaying the event journal and check it matches.',
+    name: 'RTMR3 Replay',
+    description:
+      'Re-derive RTMR3 by replaying the event logs and check that it matches the attested value.',
   },
   {
-    name: 'OS image hash',
-    description: 'Verify the attested OS image hash is recorded in the journal.',
+    name: 'OS image',
+    description: 'Verify the attested OS image hash is recorded in RTMR3 event logs.',
   },
   {
     name: 'Compose hash',
@@ -38,22 +41,9 @@ export const STEP_DEFINITIONS = [
   },
 ] as const
 
-function countComposeServices(yaml: string): number {
-  const lines = yaml.split('\n')
-  let inServices = false
-  let count = 0
-  for (const line of lines) {
-    if (/^services\s*:/.test(line)) {
-      inServices = true
-      continue
-    }
-    if (inServices && /^\S/.test(line)) {
-      inServices = false
-      continue
-    }
-    if (inServices && /^ {2}\w[\w-]*\s*:/.test(line)) count++
-  }
-  return count
+export interface PrefetchedQuote {
+  quoteData: QuoteApiResponse
+  challenge: string
 }
 
 export type StepCallback = (steps: StepResult[]) => void
@@ -67,9 +57,8 @@ function makeInitialSteps(): StepResult[] {
   }))
 }
 
-function generateChallenge(): { hex: string } {
-  const bytes = crypto.getRandomValues(new Uint8Array(32))
-  return { hex: bytesToHex(bytes) }
+function generateChallenge(): string {
+  return bytesToHex(crypto.getRandomValues(new Uint8Array(32)))
 }
 
 async function sha256(data: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
@@ -83,21 +72,21 @@ export class AttestationVerifier {
     this.onUpdate = onUpdate
   }
 
-  async verify(cvmUrl: string): Promise<AttestationResult> {
+  async verify(cvmUrl: string, prefetched?: PrefetchedQuote): Promise<AttestationResult> {
     const steps = makeInitialSteps()
     const push = (i: number, patch: Partial<StepResult>) => {
       steps[i] = { ...steps[i], ...patch }
       this.onUpdate([...steps])
     }
 
-    const { hex: challenge } = generateChallenge()
+    const challenge = prefetched?.challenge ?? generateChallenge()
 
     let quoteData: Awaited<ReturnType<typeof fetchQuote>>
     let appInfo: Awaited<ReturnType<typeof fetchAppInfo>>
 
     try {
       ;[quoteData, appInfo] = await Promise.all([
-        fetchQuote(cvmUrl, challenge),
+        prefetched ? Promise.resolve(prefetched.quoteData) : fetchQuote(cvmUrl, challenge),
         fetchAppInfo(cvmUrl),
       ])
     } catch (err) {
@@ -119,10 +108,16 @@ export class AttestationVerifier {
         signal: controller.signal,
       })
       clearTimeout(timeoutId)
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`)
+      }
+
       phalaResp = (await res.json()) as PhalaVerifyResponse
     } catch (err) {
-      push(0, { status: 'failed', error: `Phala API unreachable: ${String(err)}` })
-      return { status: 'failed', steps, failedStep: 1, errorMessage: String(err) }
+      const errorMsg = err instanceof Error ? err.message : String(err)
+      push(0, { status: 'failed', error: `Phala API error: ${errorMsg}` })
+      return { status: 'failed', steps, failedStep: 1, errorMessage: errorMsg }
     }
 
     if (!phalaResp.success) {
@@ -130,17 +125,14 @@ export class AttestationVerifier {
       return { status: 'failed', steps, failedStep: 1, errorMessage: 'Quote not verified' }
     }
 
-    const sigType = phalaResp.quote?.header?.ak_type
-    const sigVersion = phalaResp.quote?.header?.version
+    const proofOfCloud = phalaResp.proof_of_cloud
     const fmspc = phalaResp.quote?.fmspc
     const tcbLevel = phalaResp.quote?.tcb_level
 
-    const versionSuffix = sigVersion ? ` v${sigVersion}` : ''
-
     const step1Data: Record<string, string> = {
-      provider: 'Phala Cloud & Intel Root CA',
-      enclaveType: 'Intel TDX (Trust Domain Extensions)',
-      signingKey: sigType ? `${sigType}${versionSuffix}` : 'Intel Hardware Key',
+      verifier: 'Phala Cloud',
+      'enclave type': 'Intel TDX (Trust Domain Extensions)',
+      'proof of cloud': String(proofOfCloud),
     }
 
     if (fmspc) step1Data.fmspc = fmspc
@@ -148,7 +140,6 @@ export class AttestationVerifier {
 
     push(0, {
       status: 'verified',
-      detail: 'Hardware authenticity verified by Phala Cloud & Intel Root CA',
       data: step1Data,
     })
 
@@ -177,7 +168,6 @@ export class AttestationVerifier {
     }
     push(1, {
       status: 'verified',
-      detail: `Challenge: ${challenge}`,
       data: { challenge: `0x${challenge}`, embedded: `0x${challenge}` },
     })
 
@@ -192,7 +182,6 @@ export class AttestationVerifier {
     }
     push(2, {
       status: 'verified',
-      detail: 'RTMR0–3 extracted from TDX chip',
       data: {
         rtmr0: `0x${rtmrValues.rtmr0}`,
         rtmr1: `0x${rtmrValues.rtmr1}`,
@@ -205,12 +194,7 @@ export class AttestationVerifier {
     push(3, { status: 'verifying' })
 
     let computedRtmr3: Uint8Array
-    let eventsArray: EventLogEntry[]
-    if (typeof quoteData.event_log === 'string') {
-      eventsArray = JSON.parse(quoteData.event_log)
-    } else {
-      eventsArray = quoteData.event_log
-    }
+    const eventsArray: EventLogEntry[] = parseEventLog(quoteData.event_log)
     try {
       computedRtmr3 = await replayRtmr3(eventsArray)
     } catch (err) {
@@ -231,17 +215,14 @@ export class AttestationVerifier {
     }
     push(3, {
       status: 'verified',
-      detail: `RTMR3: ${computedHex}`,
       data: {
-        events: `${eventsArray.length} entries replayed`,
-        derived: `0x${computedHex}`,
         attested: `0x${expectedRtmr3}`,
+        computed: `0x${computedHex}`,
       },
     })
 
     // ── Step 5: Verify OS Image Hash ───────────────────────────────────────
     push(4, { status: 'verifying' })
-
     const osEvent = eventsArray.find((e) => e.imr === 3 && e.event === 'os-image-hash')
     if (!osEvent?.event_payload) {
       push(4, { status: 'failed', error: 'os-image-hash event not found in event log' })
@@ -252,13 +233,11 @@ export class AttestationVerifier {
       (e) => e.imr === 3 && (e.event === 'os-image-ref' || e.event === 'os-image-source'),
     )
     const step5Data: Record<string, string> = {
-      expected: `0x${osHashClean}`,
-      journal: `0x${osHashClean}`,
+      'OS hash': `0x${osHashClean}`,
     }
     if (osSourceEvent?.event_payload) step5Data.source = osSourceEvent.event_payload
     push(4, {
       status: 'verified',
-      detail: `OS hash: 0x${osHashClean}`,
       data: step5Data,
     })
 
@@ -298,16 +277,11 @@ export class AttestationVerifier {
       })
       return { status: 'failed', steps, failedStep: 6, errorMessage: 'Compose hash mismatch' }
     }
-    const serviceCount = countComposeServices(composeContent)
-    const manifestLabel =
-      serviceCount > 0 ? `docker-compose.yaml · ${serviceCount} services` : 'docker-compose.yaml'
     push(5, {
       status: 'verified',
-      detail: `Compose hash: 0x${computedComposeHash}`,
       data: {
         expected: `0x${declaredComposeHash}`,
-        observed: `0x${computedComposeHash}`,
-        manifest: manifestLabel,
+        computed: `0x${computedComposeHash}`,
       },
     })
 
@@ -317,6 +291,7 @@ export class AttestationVerifier {
       rtmrValues,
       composeContent: appInfo.app_compose,
       challenge,
+      quoteHex: quoteData.quote,
     }
   }
 }

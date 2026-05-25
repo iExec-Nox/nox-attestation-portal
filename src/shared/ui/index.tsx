@@ -18,11 +18,43 @@ export const MatIcon = ({
   </span>
 )
 
+/* ── CopyButton: self-contained copy-to-clipboard ── */
+export const CopyButton = ({ text, size = 26 }: { text: string; size?: number }) => {
+  const [copied, setCopied] = useState(false)
+  const copy = () => {
+    navigator.clipboard.writeText(text).catch(() => {})
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1100)
+  }
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      title="Copy"
+      style={{
+        width: size,
+        height: size,
+        borderRadius: 8,
+        background: copied ? 'var(--ct-brand-tint-18)' : 'transparent',
+        border: '1px solid rgba(255,255,255,0.08)',
+        cursor: 'pointer',
+        color: copied ? 'var(--ct-brand)' : 'var(--ct-fg-4)',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <MatIcon name={copied ? 'check' : 'content_copy'} size={Math.round(size * 0.5)} />
+    </button>
+  )
+}
+
 /* ── Time helpers ── */
 export function formatAgo(ts: number | null | undefined): string {
   if (!ts) return '—'
   const diff = Date.now() - ts
   const s = Math.floor(diff / 1000)
+  if (s < 5) return 'Just now'
   if (s < 60) return `${s}s ago`
   const m = Math.floor(s / 60)
   if (m < 60) return `${m} min ago`
@@ -222,75 +254,47 @@ export const HashRow = ({
   value: string
   ok?: boolean
   compact?: boolean
-}) => {
-  const [copied, setCopied] = useState(false)
-  const handleCopy = () => {
-    if (value && navigator.clipboard) {
-      navigator.clipboard.writeText(value).catch(() => {})
-    }
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1100)
-  }
-  return (
+}) => (
+  <div
+    style={{
+      display: 'grid',
+      gridTemplateColumns: '80px 1fr auto auto',
+      gap: 12,
+      alignItems: 'center',
+      padding: compact ? '6px 10px' : '10px 12px',
+      borderRadius: 10,
+      background: 'rgba(255,255,255,0.02)',
+      border: '1px solid rgba(255,255,255,0.06)',
+      minWidth: 0,
+    }}
+  >
     <div
       style={{
-        display: 'grid',
-        gridTemplateColumns: '80px 1fr auto auto',
-        gap: 12,
-        alignItems: 'center',
-        padding: compact ? '6px 10px' : '10px 12px',
-        borderRadius: 10,
-        background: 'rgba(255,255,255,0.02)',
-        border: '1px solid rgba(255,255,255,0.06)',
-        minWidth: 0,
+        font: '700 10px/16px var(--ct-font-ui)',
+        letterSpacing: '0.6px',
+        textTransform: 'uppercase' as const,
+        color: 'var(--ct-fg-5)',
       }}
     >
-      <div
-        style={{
-          font: '700 10px/16px var(--ct-font-ui)',
-          letterSpacing: '0.6px',
-          textTransform: 'uppercase' as const,
-          color: 'var(--ct-fg-5)',
-        }}
-      >
-        {label}
-      </div>
-      <div
-        title={value}
-        style={{
-          font: '500 12px/19px var(--ct-font-mono)',
-          color: ok ? 'var(--ct-fg-2)' : '#FCA5A5',
-          fontVariantNumeric: 'tabular-nums' as const,
-          whiteSpace: 'nowrap' as const,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-        }}
-      >
-        {value}
-      </div>
-      <Verdict ok={ok} />
-      <button
-        type="button"
-        onClick={handleCopy}
-        title="Copy"
-        style={{
-          width: 26,
-          height: 26,
-          borderRadius: 8,
-          background: copied ? 'var(--ct-brand-tint-18)' : 'transparent',
-          border: '1px solid rgba(255,255,255,0.08)',
-          cursor: 'pointer',
-          color: copied ? 'var(--ct-brand)' : 'var(--ct-fg-4)',
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <MatIcon name={copied ? 'check' : 'content_copy'} size={13} />
-      </button>
+      {label}
     </div>
-  )
-}
+    <div
+      title={value}
+      style={{
+        font: '500 12px/19px var(--ct-font-mono)',
+        color: ok ? 'var(--ct-fg-2)' : '#FCA5A5',
+        fontVariantNumeric: 'tabular-nums' as const,
+        whiteSpace: 'nowrap' as const,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+      }}
+    >
+      {value}
+    </div>
+    <Verdict ok={ok} />
+    <CopyButton text={value} />
+  </div>
+)
 
 /* ── PrimaryCTA ── */
 export const PrimaryCTA = ({
@@ -445,25 +449,35 @@ export const Eyebrow = ({
 )
 
 /* ── Component meta: icons + descriptions per NOX service type ── */
-const COMPONENT_ICON_MAP: [string, string][] = [
-  ['nox-gateway-journal', 'menu_book'],
-  ['nox-gateway', 'hub'],
-  ['nox-kms', 'key'],
-  ['nox-runner', 'settings_suggest'],
-]
-
-const COMPONENT_DESC_MAP: [string, string][] = [
-  ['nox-gateway-journal', 'Append-only audit journal mirroring the gateway in the NOX Protocol.'],
-  ['nox-gateway', 'REST gateway for encrypted value storage and delegation in the NOX Protocol.'],
-  ['nox-kms', 'Key Management Service for ECIES delegation in the NOX Protocol.'],
-  ['nox-runner', 'Off-chain computation worker for confidential operations in the NOX Protocol.'],
-]
+const COMPONENT_META = [
+  {
+    key: 'nox-gateway-journal',
+    icon: 'menu_book',
+    desc: 'Append-only audit journal mirroring the gateway in the NOX Protocol.',
+  },
+  {
+    key: 'nox-gateway',
+    icon: 'hub',
+    desc: 'REST gateway for encrypted value storage and delegation in the NOX Protocol.',
+  },
+  {
+    key: 'nox-kms',
+    icon: 'key',
+    desc: 'Key Management Service for ECIES delegation in the NOX Protocol.',
+  },
+  {
+    key: 'nox-runner',
+    icon: 'settings_suggest',
+    desc: 'Off-chain computation worker for confidential operations in the NOX Protocol.',
+  },
+] as const
 
 export function getComponentIcon(name: string): string {
-  for (const [key, icon] of COMPONENT_ICON_MAP) {
-    if (name.includes(key)) return icon
-  }
-  return 'memory'
+  return COMPONENT_META.find(({ key }) => name.includes(key))?.icon ?? 'memory'
+}
+
+export function getComponentDescription(name: string): string {
+  return COMPONENT_META.find(({ key }) => name.includes(key))?.desc ?? 'NOX Protocol CVM component.'
 }
 
 /* ── SummaryRow: label + value + optional actions + Verdict ── */
@@ -482,14 +496,6 @@ export function SummaryRow({
   copyable?: boolean
   href?: string
 }>) {
-  const [copied, setCopied] = useState(false)
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(value).catch(() => {})
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1100)
-  }
-
   function valueColor() {
     if (link) return 'var(--ct-brand)'
     if (ok) return 'var(--ct-fg-2)'
@@ -534,27 +540,7 @@ export function SummaryRow({
         {value}
       </div>
       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-        {copyable && (
-          <button
-            type="button"
-            onClick={handleCopy}
-            title="Copy"
-            style={{
-              width: 24,
-              height: 24,
-              borderRadius: 7,
-              background: copied ? 'var(--ct-brand-tint-18)' : 'transparent',
-              border: '1px solid rgba(255,255,255,0.08)',
-              cursor: 'pointer',
-              color: copied ? 'var(--ct-brand)' : 'var(--ct-fg-4)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <MatIcon name={copied ? 'check' : 'content_copy'} size={12} />
-          </button>
-        )}
+        {copyable && <CopyButton text={value} size={24} />}
         {href && (
           <a
             href={href}
@@ -581,11 +567,4 @@ export function SummaryRow({
       </div>
     </div>
   )
-}
-
-export function getComponentDescription(name: string): string {
-  for (const [key, desc] of COMPONENT_DESC_MAP) {
-    if (name.includes(key)) return desc
-  }
-  return 'NOX Protocol CVM component.'
 }

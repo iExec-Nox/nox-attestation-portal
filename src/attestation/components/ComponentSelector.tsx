@@ -16,6 +16,7 @@ interface ComponentsListProps {
   selected: CvmInfo | null
   onSelect: (cvm: CvmInfo) => void
   onVerifyAll: (cvms: CvmInfo[]) => void
+  onCvmsLoaded: (cvms: CvmInfo[]) => void
   isVerifying: boolean
   getStatus: (appId: string) => Status
   getProgress: (appId: string) => number
@@ -197,10 +198,21 @@ function ComponentCard({
   )
 }
 
-export function ComponentsList({
+function friendlyError(raw: string): string {
+  if (/500/.test(raw) || /connection refused/i.test(raw) || /ECONNREFUSED/i.test(raw))
+    return 'Cannot reach the NOX components service. The server may be temporarily unavailable.'
+  if (/fetch/i.test(raw) || /network/i.test(raw) || /failed to fetch/i.test(raw))
+    return 'Network error — check your connection and try again.'
+  if (/404/.test(raw)) return 'Components endpoint not found (404).'
+  if (/401/.test(raw) || /403/.test(raw)) return 'Access denied — check your credentials.'
+  return raw
+}
+
+export function ComponentSelector({
   selected,
   onSelect,
   onVerifyAll,
+  onCvmsLoaded,
   isVerifying,
   getStatus,
   getProgress,
@@ -209,13 +221,33 @@ export function ComponentsList({
   const [cvms, setCvms] = useState<CvmInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [retryKey, setRetryKey] = useState(0)
 
   useEffect(() => {
     fetchCvms()
-      .then(setCvms)
+      .then((data) => {
+        setCvms(data)
+        onCvmsLoaded(data)
+      })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false))
-  }, [])
+  }, [onCvmsLoaded, retryKey])
+
+  const attestedCount = cvms.filter((c) => getStatus(c.app_id) === 'verified').length
+  const failedCount = cvms.filter((c) => getStatus(c.app_id) === 'failed').length
+  const allDone = !loading && attestedCount === cvms.length && cvms.length > 0
+
+  function counterColor(): string {
+    if (allDone) return 'var(--ct-success-light)'
+    if (failedCount > 0) return '#FCA5A5'
+    return 'var(--ct-fg-4)'
+  }
+
+  function counterLabel(): string {
+    if (attestedCount === 0) return `${cvms.length} to verify`
+    if (allDone) return `All ${cvms.length} verified`
+    return `${attestedCount} of ${cvms.length} verified`
+  }
 
   return (
     <aside style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -229,24 +261,41 @@ export function ComponentsList({
           padding: '0 2px',
         }}
       >
-        <div>
+        <div style={{ minWidth: 0 }}>
           <Eyebrow>NOX Components</Eyebrow>
-          <div
-            style={{
-              font: '700 22px/28px var(--ct-font-display)',
-              color: 'var(--ct-fg-1)',
-              letterSpacing: '-0.4px',
-              marginTop: 4,
-            }}
-          >
-            {loading ? '…' : `${cvms.length} service${cvms.length === 1 ? '' : 's'} attested`}
-          </div>
+
+          {/* Compact progress indicator */}
+          {!loading && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+              <span
+                style={{
+                  font: '500 12px/1 var(--ct-font-ui)',
+                  color: counterColor(),
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {counterLabel()}
+              </span>
+            </div>
+          )}
+          {loading && (
+            <div
+              style={{
+                marginTop: 8,
+                height: 4,
+                width: 72,
+                borderRadius: 2,
+                background: 'rgba(255,255,255,0.07)',
+                animation: 'badge-pulse 1.5s ease-in-out infinite',
+              }}
+            />
+          )}
         </div>
         <PrimaryCTA
           icon="verified_user"
           onClick={() => onVerifyAll(cvms)}
           loading={isVerifying}
-          disabled={selected === null}
+          disabled={loading || cvms.length === 0}
           size="md"
         >
           Verify all
@@ -275,19 +324,79 @@ export function ComponentsList({
       {error && (
         <div
           style={{
-            padding: '12px 14px',
-            borderRadius: 12,
-            background: 'rgba(248,113,113,0.08)',
-            border: '1px solid rgba(248,113,113,0.25)',
-            color: '#FCA5A5',
-            font: '500 13px/20px var(--ct-font-ui)',
+            padding: '16px 18px',
+            borderRadius: 16,
+            background: 'rgba(248,113,113,0.06)',
+            border: '1px solid rgba(248,113,113,0.20)',
             display: 'flex',
-            gap: 8,
-            alignItems: 'center',
+            flexDirection: 'column',
+            gap: 12,
           }}
         >
-          <MatIcon name="error" size={16} />
-          {error}
+          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 10,
+                background: 'rgba(248,113,113,0.12)',
+                border: '1px solid rgba(248,113,113,0.25)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                color: '#F87171',
+              }}
+            >
+              <MatIcon name="cloud_off" size={16} />
+            </div>
+            <div>
+              <div
+                style={{
+                  font: '600 13px/18px var(--ct-font-display)',
+                  color: '#FCA5A5',
+                  marginBottom: 4,
+                }}
+              >
+                Service unavailable
+              </div>
+              <div
+                style={{
+                  font: '400 12px/18px var(--ct-font-ui)',
+                  color: 'rgba(252,165,165,0.7)',
+                }}
+              >
+                {friendlyError(error)}
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setError(null)
+              setLoading(true)
+              setRetryKey((k) => k + 1)
+            }}
+            style={{
+              alignSelf: 'flex-start',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              height: 30,
+              padding: '0 12px',
+              borderRadius: 8,
+              background: 'rgba(248,113,113,0.10)',
+              border: '1px solid rgba(248,113,113,0.25)',
+              color: '#FCA5A5',
+              font: '600 12px/1 var(--ct-font-display)',
+              cursor: 'pointer',
+              letterSpacing: '0.1px',
+            }}
+          >
+            <MatIcon name="refresh" size={14} />
+            Retry
+          </button>
         </div>
       )}
 
