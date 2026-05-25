@@ -16,6 +16,8 @@ interface ComponentDetailProps {
   cvm: CvmInfo
   status: Status
   lastVerified: number | null
+  quoteHex?: string
+  quoteLoading?: boolean
   onVerify: () => void
 }
 
@@ -23,13 +25,19 @@ export function ComponentDetail({
   cvm,
   status,
   lastVerified,
+  quoteHex,
+  quoteLoading = false,
   onVerify,
 }: Readonly<ComponentDetailProps>) {
-  const [urlCopied, setUrlCopied] = useState(false)
-  const handleCopyUrl = () => {
-    navigator.clipboard.writeText(cvm.url).catch(() => {})
-    setUrlCopied(true)
-    setTimeout(() => setUrlCopied(false), 1100)
+  const [quoteCopied, setQuoteCopied] = useState(false)
+  const [quoteExpanded, setQuoteExpanded] = useState(false)
+
+  const displayedQuote = quoteHex ?? null
+
+  const handleCopyQuote = () => {
+    if (displayedQuote) navigator.clipboard.writeText(displayedQuote).catch(() => {})
+    setQuoteCopied(true)
+    setTimeout(() => setQuoteCopied(false), 1100)
   }
 
   const icon = getComponentIcon(cvm.name)
@@ -124,7 +132,7 @@ export function ComponentDetail({
           display: 'flex',
           alignItems: 'center',
           gap: 20,
-          paddingTop: 4,
+          paddingTop: 10,
           borderTop: '1px solid rgba(255,255,255,0.06)',
         }}
       >
@@ -177,82 +185,139 @@ export function ComponentDetail({
         </span>
       </div>
 
-      {/* Quote URL row */}
+      {/* Quote row */}
       <div
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          padding: '10px 14px',
           borderRadius: 10,
           background: 'rgba(255,255,255,0.03)',
           border: '1px solid rgba(255,255,255,0.07)',
+          overflow: 'hidden',
         }}
       >
-        <MatIcon name="cloud" size={15} color="var(--ct-fg-5)" />
-        <span
+        {/* Single compact line: icon · Quote · hex (truncated) · copy · expand */}
+        <div
           style={{
-            font: '500 11px/1 var(--ct-font-ui)',
-            color: 'var(--ct-fg-5)',
-            flexShrink: 0,
-          }}
-        >
-          Quote · Attestation Service
-        </span>
-        <span
-          style={{
-            font: '500 12px/1 var(--ct-font-mono)',
-            color: 'var(--ct-fg-3)',
-            flex: 1,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-          title={cvm.url}
-        >
-          {cvm.url}
-        </span>
-        <button
-          type="button"
-          onClick={handleCopyUrl}
-          title="Copy URL"
-          style={{
-            width: 26,
-            height: 26,
-            borderRadius: 7,
-            background: urlCopied ? 'var(--ct-brand-tint-18)' : 'transparent',
-            border: '1px solid rgba(255,255,255,0.08)',
-            cursor: 'pointer',
-            color: urlCopied ? 'var(--ct-brand)' : 'var(--ct-fg-4)',
-            display: 'inline-flex',
+            display: 'grid',
+            gridTemplateColumns: 'auto auto 1fr auto',
+            gap: 8,
             alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
+            padding: '8px 12px',
           }}
         >
-          <MatIcon name={urlCopied ? 'check' : 'content_copy'} size={13} />
-        </button>
-        <a
-          href={cvm.url}
-          target="_blank"
-          rel="noreferrer"
-          title="Open in new tab"
-          style={{
-            width: 26,
-            height: 26,
-            borderRadius: 7,
-            background: 'transparent',
-            border: '1px solid rgba(255,255,255,0.08)',
-            color: 'var(--ct-fg-4)',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-            textDecoration: 'none',
-          }}
-        >
-          <MatIcon name="open_in_new" size={13} />
-        </a>
+          <MatIcon name="lock" size={14} color="var(--ct-fg-5)" />
+          <span
+            style={{
+              font: '700 10px/1 var(--ct-font-ui)',
+              letterSpacing: '0.8px',
+              textTransform: 'uppercase',
+              color: 'var(--ct-fg-5)',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Quote
+          </span>
+
+          {/* Hex preview — one line, ellipsis */}
+          {displayedQuote ? (
+            <span
+              title={displayedQuote}
+              style={{
+                font: '500 11px/1 var(--ct-font-mono)',
+                color: 'var(--ct-fg-3)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {displayedQuote}
+            </span>
+          ) : quoteLoading ? (
+            <span
+              style={{
+                height: 8,
+                width: 120,
+                borderRadius: 4,
+                background: 'rgba(255,255,255,0.07)',
+                animation: 'badge-pulse 1.5s ease-in-out infinite',
+                display: 'inline-block',
+              }}
+            />
+          ) : (
+            <span
+              style={{
+                font: '400 11px/1 var(--ct-font-ui)',
+                color: 'var(--ct-fg-6)',
+                fontStyle: 'italic',
+              }}
+            >
+              Unavailable
+            </span>
+          )}
+
+          {/* Action buttons — only when quote is available */}
+          {displayedQuote && (
+            <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+              <button
+                type="button"
+                onClick={handleCopyQuote}
+                title="Copy full quote"
+                style={{
+                  width: 26,
+                  height: 26,
+                  borderRadius: 7,
+                  background: quoteCopied ? 'var(--ct-brand-tint-18)' : 'transparent',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  cursor: 'pointer',
+                  color: quoteCopied ? 'var(--ct-brand)' : 'var(--ct-fg-4)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <MatIcon name={quoteCopied ? 'check' : 'content_copy'} size={13} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuoteExpanded((v) => !v)}
+                title={quoteExpanded ? 'Collapse' : 'Expand'}
+                style={{
+                  width: 26,
+                  height: 26,
+                  borderRadius: 7,
+                  background: 'transparent',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  cursor: 'pointer',
+                  color: 'var(--ct-fg-4)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <MatIcon name={quoteExpanded ? 'expand_less' : 'expand_more'} size={13} />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Expanded box */}
+        {displayedQuote && quoteExpanded && (
+          <pre
+            style={{
+              margin: 0,
+              padding: '10px 14px',
+              borderTop: '1px solid rgba(255,255,255,0.06)',
+              font: '500 11px/18px var(--ct-font-mono)',
+              color: 'var(--ct-fg-3)',
+              background: 'rgba(0,0,0,0.15)',
+              wordBreak: 'break-all',
+              whiteSpace: 'pre-wrap',
+              maxHeight: 200,
+              overflowY: 'auto',
+            }}
+          >
+            {displayedQuote}
+          </pre>
+        )}
       </div>
     </div>
   )

@@ -1,12 +1,28 @@
 import { useCallback, useState } from 'react'
 import { useAttestation } from '../hooks/useAttestation.ts'
-import { AttestationVerifier } from '../services/verifier.ts'
-import { ComponentsList } from './ComponentSelector.tsx'
+import { AttestationVerifier, type PrefetchedQuote } from '../services/verifier.ts'
+import { fetchQuote } from '../services/quote-service.ts'
+import { bytesToHex } from '../../shared/lib/utils.ts'
+import { ComponentSelector } from './ComponentSelector.tsx'
 import { ComponentView } from './ComponentView.tsx'
 import { EmptyState } from './EmptyState.tsx'
 import { TopBar } from '../../shared/layout/TopBar.tsx'
 import { type Status } from '../../shared/ui/index.tsx'
 import type { ComponentRecord, CvmInfo, StepResult } from '../types/index.ts'
+
+function fetchAndCacheQuote(
+  cvm: CvmInfo,
+  setCache: (
+    fn: (prev: Record<string, PrefetchedQuote>) => Record<string, PrefetchedQuote>,
+  ) => void,
+  setFetched: (fn: (prev: Set<string>) => Set<string>) => void,
+) {
+  const challenge = bytesToHex(crypto.getRandomValues(new Uint8Array(32)))
+  fetchQuote(cvm.url, challenge)
+    .then((quoteData) => setCache((prev) => ({ ...prev, [cvm.app_id]: { quoteData, challenge } })))
+    .catch(() => {})
+    .finally(() => setFetched((prev) => new Set([...prev, cvm.app_id])))
+}
 
 function buildStepUpdateCb(
   appId: string,
@@ -22,10 +38,12 @@ export function AttestationPortal() {
   const { state, selectCvm, run, reset } = useAttestation()
   const { status, selectedCvm, steps, result } = state
 
+  const [cvms, setCvms] = useState<CvmInfo[]>([])
   const [history, setHistory] = useState<Record<string, ComponentRecord>>({})
-  const [lastChecked, setLastChecked] = useState<number | null>(null)
   const [verifyingAll, setVerifyingAll] = useState(false)
   const [bgProgress, setBgProgress] = useState<Record<string, number>>({})
+  const [quoteCache, setQuoteCache] = useState<Record<string, PrefetchedQuote>>({})
+  const [quoteFetched, setQuoteFetched] = useState<Set<string>>(new Set())
 
   const getStatus = useCallback(
     (appId: string): Status => {
@@ -58,6 +76,11 @@ export function AttestationPortal() {
     [history],
   )
 
+  const handleCvmsLoaded = useCallback((loaded: CvmInfo[]) => {
+    setCvms(loaded)
+    loaded.forEach((cvm) => fetchAndCacheQuote(cvm, setQuoteCache, setQuoteFetched))
+  }, [])
+
   const handleHome = useCallback(() => reset(), [reset])
 
   const handleSelect = useCallback(
@@ -71,7 +94,7 @@ export function AttestationPortal() {
 
   const handleVerify = useCallback(async () => {
     if (!selectedCvm) return
-    const attestResult = await run()
+    const attestResult = await run(quoteCache[selectedCvm.app_id])
     if (!attestResult) return
     const now = Date.now()
     setHistory((prev) => ({
@@ -82,8 +105,7 @@ export function AttestationPortal() {
         result: attestResult,
       },
     }))
-    setLastChecked(now)
-  }, [run, selectedCvm])
+  }, [run, selectedCvm, quoteCache])
 
   const handleVerifyAll = useCallback(
     async (allCvms: CvmInfo[]) => {
@@ -94,7 +116,7 @@ export function AttestationPortal() {
       const otherPromises = otherCvms.map(async (cvm) => {
         setBgProgress((prev) => ({ ...prev, [cvm.app_id]: 0 }))
         const verifier = new AttestationVerifier(buildStepUpdateCb(cvm.app_id, setBgProgress))
-        const attestResult = await verifier.verify(cvm.url)
+        const attestResult = await verifier.verify(cvm.url, quoteCache[cvm.app_id])
         setBgProgress((prev) => {
           const next = { ...prev }
           delete next[cvm.app_id]
@@ -111,17 +133,23 @@ export function AttestationPortal() {
         }))
       })
       await Promise.all([selectedPromise, ...otherPromises])
-      setLastChecked(Date.now())
       setVerifyingAll(false)
     },
-    [status, verifyingAll, selectedCvm, handleVerify],
+    [status, verifyingAll, selectedCvm, handleVerify, quoteCache],
   )
+
+  const handleRefreshAll = useCallback(() => {
+    void handleVerifyAll(cvms)
+  }, [handleVerifyAll, cvms])
 
   const prevRecord = selectedCvm ? (history[selectedCvm.app_id] ?? null) : null
   const showAnalytics =
     status === 'verified' || status === 'failed' || (status === 'pending' && !!prevRecord)
   const displayedResult = showAnalytics ? (result ?? prevRecord?.result ?? null) : null
-  const globalStatus: 'verified' | 'pending' = status === 'verified' ? 'verified' : 'pending'
+
+  const verifiedCount = cvms.filter((c) => history[c.app_id]?.status === 'verified').length
+  const failedCount = cvms.filter((c) => history[c.app_id]?.status === 'failed').length
+  const firstFailed = cvms.find((c) => history[c.app_id]?.status === 'failed')
 
   return (
     <div
@@ -133,10 +161,12 @@ export function AttestationPortal() {
       }}
     >
       <TopBar
-        globalStatus={globalStatus}
-        lastChecked={lastChecked}
-        onRefresh={handleVerify}
-        refreshing={status === 'verifying'}
+        total={cvms.length}
+        verifiedCount={verifiedCount}
+        failedCount={failedCount}
+        firstFailedName={firstFailed?.name}
+        verifying={status === 'verifying' || verifyingAll}
+        onRefresh={handleRefreshAll}
         onHome={handleHome}
       />
 
@@ -155,10 +185,11 @@ export function AttestationPortal() {
         }}
       >
         <div style={{ position: 'sticky', top: 70, alignSelf: 'start' }}>
-          <ComponentsList
+          <ComponentSelector
             selected={selectedCvm}
             onSelect={handleSelect}
             onVerifyAll={handleVerifyAll}
+            onCvmsLoaded={handleCvmsLoaded}
             isVerifying={status === 'verifying' || verifyingAll}
             getStatus={getStatus}
             getProgress={getProgress}
@@ -177,6 +208,8 @@ export function AttestationPortal() {
               displayedResult={displayedResult}
               status={getStatus(selectedCvm.app_id)}
               lastVerified={getLastVerified(selectedCvm.app_id)}
+              quoteHex={quoteCache[selectedCvm.app_id]?.quoteData.quote}
+              quoteLoading={!quoteFetched.has(selectedCvm.app_id)}
               onVerify={handleVerify}
             />
           )}

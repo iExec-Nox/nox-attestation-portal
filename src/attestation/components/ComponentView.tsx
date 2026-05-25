@@ -11,6 +11,8 @@ interface ComponentViewProps {
   displayedResult: AttestationResult | null
   status: Status
   lastVerified: number | null
+  quoteHex?: string
+  quoteLoading?: boolean
   onVerify: () => void
 }
 
@@ -21,18 +23,27 @@ export function ComponentView({
   displayedResult,
   status,
   lastVerified,
+  quoteHex,
+  quoteLoading,
   onVerify,
 }: Readonly<ComponentViewProps>) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <ComponentDetail cvm={cvm} status={status} lastVerified={lastVerified} onVerify={onVerify} />
+      <ComponentDetail
+        cvm={cvm}
+        status={status}
+        lastVerified={lastVerified}
+        quoteHex={displayedResult?.quoteHex ?? quoteHex}
+        quoteLoading={quoteLoading}
+        onVerify={onVerify}
+      />
       <VerificationSteps
         status={status}
         steps={steps}
         prevRecord={prevRecord}
         onVerify={onVerify}
       />
-      {displayedResult && <AttestationReport result={displayedResult} cvm={cvm} />}
+      {displayedResult && <AttestationReport result={displayedResult} />}
     </div>
   )
 }

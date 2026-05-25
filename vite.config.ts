@@ -36,6 +36,12 @@ export default defineConfig({
     port: 3000,
     open: true,
     proxy: {
+      '/api/cvms': {
+        target: 'https://nox-cvms-exporter.ovh-tdx-dev.noxprotocol.dev:8443',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
       '/api/phala': {
         target: 'https://cloud-api.phala.network',
         changeOrigin: true,

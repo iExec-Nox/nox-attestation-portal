@@ -6,7 +6,7 @@ export interface CvmInfo {
 }
 
 export interface EventLogEntry {
-  imr: number
+  imr: 0 | 1 | 2 | 3 // IMR registers sont strictement 0-3
   event_type: number
   event: string
   event_payload: string
@@ -15,7 +15,9 @@ export interface EventLogEntry {
 
 export interface QuoteApiResponse {
   quote: string
-  event_log: EventLogEntry[]
+  event_log: string | EventLogEntry[]
+  rtmrs?: string
+  vm_config?: string
 }
 
 export interface AppInfoApiResponse {
@@ -41,17 +43,23 @@ export interface TdxQuoteBody {
 }
 
 export interface TdxQuoteHeader {
-  ak_type: string
-  qe_vendor: string
-  tee_type: 'TEE_TDX' | string
-  user_data: string
   version: number
+  ak_type: string
+  tee_type: 'TEE_TDX' | string
+  qe_vendor: string
+  user_data: string
 }
 
 export interface PhalaVerifyResponse {
+  id: string
   success: boolean
   verified: boolean
+  proof_of_cloud: boolean
+  checksum?: string
   quote?: {
+    ak_type: string
+    tee_type: 'TEE_TDX' | string
+    qe_vendor: string
     body?: TdxQuoteBody
     header?: TdxQuoteHeader
     cert_data?: string
@@ -60,6 +68,35 @@ export interface PhalaVerifyResponse {
     sig_type?: string
     sig_version?: number
   }
+  node_provider?: {
+    proof_of_cloud: boolean
+    provider: string
+    ppid: string
+  }
+}
+
+export interface RtmrValues {
+  rtmr0: string
+  rtmr1: string
+  rtmr2: string
+  rtmr3: string
+}
+
+export type RtmrValuesRaw = Record<'0' | '1' | '2' | '3', string>
+
+export interface VmConfig {
+  os_image_hash: string
+  cpu_count: number
+  memory_size: number
+  qemu_version: string
+  pci_hole64_size: number
+  hugepages: boolean
+  num_gpus: number
+  num_nvswitches: number
+  hotplug_off: boolean
+  image: string
+  host_share_mode: string
+  spec_version: number
 }
 
 export type StepStatus = 'pending' | 'verifying' | 'verified' | 'failed'
@@ -74,19 +111,13 @@ export interface StepResult {
   data?: Record<string, unknown>
 }
 
-export interface RtmrValues {
-  rtmr0: string
-  rtmr1: string
-  rtmr2: string
-  rtmr3: string
-}
-
 export interface AttestationResult {
   status: 'verified' | 'failed'
   steps: StepResult[]
   rtmrValues?: RtmrValues
   composeContent?: string
   challenge?: string
+  quoteHex?: string
   failedStep?: number
   errorMessage?: string
 }
@@ -97,4 +128,26 @@ export interface ComponentRecord {
   status: 'verified' | 'failed'
   completedAt: number
   result: AttestationResult
+}
+
+export function parseEventLog(raw: string | EventLogEntry[]): EventLogEntry[] {
+  return typeof raw === 'string' ? JSON.parse(raw) : raw
+}
+
+export function parseRtmrs(raw: string): RtmrValues {
+  const parsed = JSON.parse(raw) as RtmrValuesRaw
+  return {
+    rtmr0: parsed['0'],
+    rtmr1: parsed['1'],
+    rtmr2: parsed['2'],
+    rtmr3: parsed['3'],
+  }
+}
+
+export function parseVmConfig(raw: string): VmConfig {
+  return JSON.parse(raw)
+}
+
+export function isValidImr(value: number): value is 0 | 1 | 2 | 3 {
+  return [0, 1, 2, 3].includes(value)
 }
