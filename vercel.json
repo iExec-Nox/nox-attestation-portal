@@ -7,10 +7,6 @@
     {
       "source": "/api/cvms",
       "destination": "https://nox-cvms-exporter.ovh-tdx-dev.noxprotocol.dev:8443/cvms"
-    },
-    {
-      "source": "/api/cvm-proxy/:path*",
-      "destination": "https://:path*"
     }
   ]
 }
