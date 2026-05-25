@@ -4,6 +4,7 @@ import reactPlugin from 'eslint-plugin-react';
 import hooksPlugin from 'eslint-plugin-react-hooks';
 import jsxA11yPlugin from 'eslint-plugin-jsx-a11y';
 import importXPlugin from 'eslint-plugin-import-x';
+import { createTypeScriptImportResolver } from 'eslint-import-resolver-typescript';
 import eslintConfigPrettier from 'eslint-config-prettier';
 
 export default tseslint.config(
@@ -33,6 +34,7 @@ export default tseslint.config(
     },
     settings: {
       react: { version: 'detect' },
+      'import-x/resolver-next': [createTypeScriptImportResolver()],
     },
   },
 
