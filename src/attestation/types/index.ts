@@ -1,8 +1,13 @@
+export interface InstanceInfo {
+  instance_id: string
+  url: string
+  machine_id: string
+}
+
 export interface CvmInfo {
   app_id: string
   name: string
-  url: string
-  instance?: string
+  instances: InstanceInfo[]
 }
 
 export interface EventLogEntry {
