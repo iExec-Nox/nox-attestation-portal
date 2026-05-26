@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useAttestation } from '../hooks/useAttestation.ts'
 import { AttestationVerifier, type PrefetchedQuote } from '../services/verifier.ts'
 import { fetchQuote } from '../services/quote-service.ts'
@@ -8,77 +8,166 @@ import { ComponentView } from './ComponentView.tsx'
 import { EmptyState } from './EmptyState.tsx'
 import { TopBar } from '../../shared/layout/TopBar.tsx'
 import { type Status } from '../../shared/ui/index.tsx'
-import type { ComponentRecord, CvmInfo, StepResult } from '../types/index.ts'
+import type {
+  AttestationResult,
+  ComponentRecord,
+  CvmInfo,
+  InstanceInfo,
+  StepResult,
+} from '../types/index.ts'
+
+function useIsMobile(): boolean {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 800)
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 800)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [])
+  return isMobile
+}
 
 function fetchAndCacheQuote(
-  cvm: CvmInfo,
+  instance: InstanceInfo,
   setCache: (
     fn: (prev: Record<string, PrefetchedQuote>) => Record<string, PrefetchedQuote>,
   ) => void,
   setFetched: (fn: (prev: Set<string>) => Set<string>) => void,
 ) {
   const challenge = bytesToHex(crypto.getRandomValues(new Uint8Array(32)))
-  fetchQuote(cvm.url, challenge)
-    .then((quoteData) => setCache((prev) => ({ ...prev, [cvm.app_id]: { quoteData, challenge } })))
+  fetchQuote(instance.url, challenge)
+    .then((quoteData) =>
+      setCache((prev) => ({ ...prev, [instance.instance_id]: { quoteData, challenge } })),
+    )
     .catch(() => {})
-    .finally(() => setFetched((prev) => new Set([...prev, cvm.app_id])))
+    .finally(() => setFetched((prev) => new Set([...prev, instance.instance_id])))
 }
 
 function buildStepUpdateCb(
-  appId: string,
+  instanceId: string,
   setBg: (fn: (prev: Record<string, number>) => Record<string, number>) => void,
+  setBgSteps: (fn: (prev: Record<string, StepResult[]>) => Record<string, StepResult[]>) => void,
 ) {
-  return (steps: StepResult[]) => {
-    const done = steps.filter((s) => s.status === 'verified').length
-    setBg((prev) => ({ ...prev, [appId]: done }))
+  return (updatedSteps: StepResult[]) => {
+    const done = updatedSteps.filter((s) => s.status === 'verified').length
+    setBg((prev) => ({ ...prev, [instanceId]: done }))
+    setBgSteps((prev) => ({ ...prev, [instanceId]: updatedSteps }))
   }
 }
 
 export function AttestationPortal() {
+  const isMobile = useIsMobile()
   const { state, selectCvm, run, reset } = useAttestation()
-  const { status, selectedCvm, steps, result } = state
+  const { status, selectedCvm, selectedInstance, steps, result } = state
 
   const [cvms, setCvms] = useState<CvmInfo[]>([])
   const [history, setHistory] = useState<Record<string, ComponentRecord>>({})
   const [verifyingAll, setVerifyingAll] = useState(false)
   const [bgProgress, setBgProgress] = useState<Record<string, number>>({})
+  const [bgSteps, setBgSteps] = useState<Record<string, StepResult[]>>({})
   const [quoteCache, setQuoteCache] = useState<Record<string, PrefetchedQuote>>({})
   const [quoteFetched, setQuoteFetched] = useState<Set<string>>(new Set())
 
-  const getStatus = useCallback(
-    (appId: string): Status => {
-      if (selectedCvm?.app_id === appId) {
+  const getInstanceStatus = useCallback(
+    (instanceId: string): Status => {
+      if (selectedInstance?.instance_id === instanceId) {
         if (status === 'verifying') return 'verifying'
-        const rec = history[appId]
+        const rec = history[instanceId]
         if (rec) return rec.status
         return status
       }
-      if (appId in bgProgress) return 'verifying'
-      const rec = history[appId]
+      if (instanceId in bgProgress) return 'verifying'
+      const rec = history[instanceId]
       if (rec) return rec.status
       return 'pending'
     },
-    [selectedCvm, status, history, bgProgress],
+    [selectedInstance, status, history, bgProgress],
+  )
+
+  const getStatus = useCallback(
+    (appId: string): Status => {
+      const cvm = cvms.find((c) => c.app_id === appId)
+      if (!cvm) return 'pending'
+
+      const anyVerifying = cvm.instances.some(
+        (i) =>
+          (selectedCvm?.app_id === appId &&
+            selectedInstance?.instance_id === i.instance_id &&
+            status === 'verifying') ||
+          i.instance_id in bgProgress,
+      )
+      if (anyVerifying) return 'verifying'
+
+      const statuses = new Set(cvm.instances.map((i) => history[i.instance_id]?.status))
+      if (statuses.has('failed')) return 'failed'
+      if (statuses.has('verified')) return 'verified'
+      return 'pending'
+    },
+    [selectedCvm, selectedInstance, status, history, bgProgress, cvms],
   )
 
   const getProgress = useCallback(
     (appId: string): number => {
-      if (selectedCvm?.app_id === appId) {
+      if (selectedCvm?.app_id === appId && selectedInstance) {
         return steps.filter((s) => s.status === 'verified').length
       }
-      return bgProgress[appId] ?? -1
+      const cvm = cvms.find((c) => c.app_id === appId)
+      if (!cvm) return -1
+      const progresses = cvm.instances
+        .filter((i) => i.instance_id in bgProgress)
+        .map((i) => bgProgress[i.instance_id] ?? -1)
+      return progresses.length > 0 ? Math.max(...progresses) : -1
     },
-    [selectedCvm, steps, bgProgress],
+    [selectedCvm, selectedInstance, steps, bgProgress, cvms],
   )
 
   const getLastVerified = useCallback(
-    (appId: string): number | null => history[appId]?.completedAt ?? null,
+    (appId: string): number | null => {
+      const cvm = cvms.find((c) => c.app_id === appId)
+      if (!cvm) return null
+      const times = cvm.instances
+        .map((i) => history[i.instance_id]?.completedAt)
+        .filter((t): t is number => t !== undefined)
+      return times.length > 0 ? Math.max(...times) : null
+    },
+    [history, cvms],
+  )
+
+  const getInstanceLastVerified = useCallback(
+    (instanceId: string): number | null => history[instanceId]?.completedAt ?? null,
     [history],
+  )
+
+  const getInstanceQuote = useCallback(
+    (instanceId: string): string | undefined => {
+      if (selectedInstance?.instance_id === instanceId && result?.quoteHex) {
+        return result.quoteHex
+      }
+      return quoteCache[instanceId]?.quoteData.quote
+    },
+    [selectedInstance, result, quoteCache],
+  )
+
+  const isInstanceQuoteLoading = useCallback(
+    (instanceId: string): boolean => !quoteFetched.has(instanceId),
+    [quoteFetched],
+  )
+
+  const getInstanceSteps = useCallback(
+    (instanceId: string): StepResult[] | null => {
+      if (instanceId === selectedInstance?.instance_id) return steps
+      if (instanceId in bgSteps) return bgSteps[instanceId]
+      return history[instanceId]?.result.steps ?? null
+    },
+    [selectedInstance, steps, bgSteps, history],
   )
 
   const handleCvmsLoaded = useCallback((loaded: CvmInfo[]) => {
     setCvms(loaded)
-    loaded.forEach((cvm) => fetchAndCacheQuote(cvm, setQuoteCache, setQuoteFetched))
+    loaded.forEach((cvm) => {
+      cvm.instances.forEach((instance) => {
+        fetchAndCacheQuote(instance, setQuoteCache, setQuoteFetched)
+      })
+    })
   }, [])
 
   const handleHome = useCallback(() => reset(), [reset])
@@ -92,64 +181,83 @@ export function AttestationPortal() {
     [status, reset, selectCvm],
   )
 
-  const handleVerify = useCallback(async () => {
-    if (!selectedCvm) return
-    const attestResult = await run(quoteCache[selectedCvm.app_id])
-    if (!attestResult) return
-    const now = Date.now()
-    setHistory((prev) => ({
-      ...prev,
-      [selectedCvm.app_id]: {
-        status: attestResult.status,
-        completedAt: now,
-        result: attestResult,
-      },
-    }))
-  }, [run, selectedCvm, quoteCache])
+  const handleVerifyInstance = useCallback(
+    async (instance: InstanceInfo) => {
+      const attestResult = await run(instance, quoteCache[instance.instance_id])
+      if (!attestResult) return
+      const now = Date.now()
+      setHistory((prev) => ({
+        ...prev,
+        [instance.instance_id]: {
+          status: attestResult.status,
+          completedAt: now,
+          result: attestResult,
+        },
+      }))
+    },
+    [run, quoteCache],
+  )
 
   const handleVerifyAll = useCallback(
     async (allCvms: CvmInfo[]) => {
       if (status === 'verifying' || verifyingAll) return
       setVerifyingAll(true)
-      const otherCvms = allCvms.filter((c) => c.app_id !== selectedCvm?.app_id)
-      const selectedPromise = selectedCvm ? handleVerify() : Promise.resolve()
-      const otherPromises = otherCvms.map(async (cvm) => {
-        setBgProgress((prev) => ({ ...prev, [cvm.app_id]: 0 }))
-        const verifier = new AttestationVerifier(buildStepUpdateCb(cvm.app_id, setBgProgress))
-        const attestResult = await verifier.verify(cvm.url, quoteCache[cvm.app_id])
+
+      const allInstances = allCvms.flatMap((cvm) => cvm.instances)
+      const promises = allInstances.map(async (instance) => {
+        setBgProgress((prev) => ({ ...prev, [instance.instance_id]: 0 }))
+        const verifier = new AttestationVerifier(
+          buildStepUpdateCb(instance.instance_id, setBgProgress, setBgSteps),
+        )
+        const attestResult = await verifier.verify(instance.url, quoteCache[instance.instance_id])
         setBgProgress((prev) => {
           const next = { ...prev }
-          delete next[cvm.app_id]
+          delete next[instance.instance_id]
+          return next
+        })
+        setBgSteps((prev) => {
+          const next = { ...prev }
+          delete next[instance.instance_id]
           return next
         })
         const now = Date.now()
         setHistory((prev) => ({
           ...prev,
-          [cvm.app_id]: {
+          [instance.instance_id]: {
             status: attestResult.status,
             completedAt: now,
             result: attestResult,
           },
         }))
       })
-      await Promise.all([selectedPromise, ...otherPromises])
+
+      await Promise.all(promises)
       setVerifyingAll(false)
     },
-    [status, verifyingAll, selectedCvm, handleVerify, quoteCache],
+    [status, verifyingAll, quoteCache],
   )
 
   const handleRefreshAll = useCallback(() => {
     void handleVerifyAll(cvms)
   }, [handleVerifyAll, cvms])
 
-  const prevRecord = selectedCvm ? (history[selectedCvm.app_id] ?? null) : null
-  const showAnalytics =
-    status === 'verified' || status === 'failed' || (status === 'pending' && !!prevRecord)
-  const displayedResult = showAnalytics ? (result ?? prevRecord?.result ?? null) : null
+  const getInstanceResult = useCallback(
+    (instanceId: string): AttestationResult | null => {
+      if (instanceId === selectedInstance?.instance_id && result) return result
+      return history[instanceId]?.result ?? null
+    },
+    [selectedInstance, result, history],
+  )
 
-  const verifiedCount = cvms.filter((c) => history[c.app_id]?.status === 'verified').length
-  const failedCount = cvms.filter((c) => history[c.app_id]?.status === 'failed').length
-  const firstFailed = cvms.find((c) => history[c.app_id]?.status === 'failed')
+  const allInstances = cvms.flatMap((c) => c.instances)
+  const verifiedCount = allInstances.filter(
+    (i) => history[i.instance_id]?.status === 'verified',
+  ).length
+  const failedCount = allInstances.filter((i) => history[i.instance_id]?.status === 'failed').length
+  const firstFailedInstance = allInstances.find((i) => history[i.instance_id]?.status === 'failed')
+  const firstFailedCvm = firstFailedInstance
+    ? cvms.find((c) => c.instances.some((i) => i.instance_id === firstFailedInstance.instance_id))
+    : undefined
 
   return (
     <div
@@ -161,10 +269,10 @@ export function AttestationPortal() {
       }}
     >
       <TopBar
-        total={cvms.length}
+        total={allInstances.length}
         verifiedCount={verifiedCount}
         failedCount={failedCount}
-        firstFailedName={firstFailed?.name}
+        firstFailedName={firstFailedCvm?.name}
         verifying={status === 'verifying' || verifyingAll}
         onRefresh={handleRefreshAll}
         onHome={handleHome}
@@ -173,22 +281,21 @@ export function AttestationPortal() {
       <div
         style={{
           flex: 1,
-          padding: '28px 28px 40px',
+          padding: isMobile ? '16px 16px 32px' : '28px 28px 40px',
           maxWidth: 1560,
           margin: '0 auto',
           width: '100%',
           display: 'grid',
-          gridTemplateColumns: '360px 1fr',
-          gap: 24,
+          gridTemplateColumns: isMobile ? '1fr' : '360px 1fr',
+          gap: isMobile ? 16 : 24,
           alignItems: 'start',
           boxSizing: 'border-box',
         }}
       >
-        <div style={{ position: 'sticky', top: 70, alignSelf: 'start' }}>
+        <div style={{ position: isMobile ? 'static' : 'sticky', top: 70, alignSelf: 'start' }}>
           <ComponentSelector
             selected={selectedCvm}
             onSelect={handleSelect}
-            onVerifyAll={handleVerifyAll}
             onCvmsLoaded={handleCvmsLoaded}
             isVerifying={status === 'verifying' || verifyingAll}
             getStatus={getStatus}
@@ -203,14 +310,14 @@ export function AttestationPortal() {
           ) : (
             <ComponentView
               cvm={selectedCvm}
-              steps={steps}
-              prevRecord={prevRecord}
-              displayedResult={displayedResult}
-              status={getStatus(selectedCvm.app_id)}
-              lastVerified={getLastVerified(selectedCvm.app_id)}
-              quoteHex={quoteCache[selectedCvm.app_id]?.quoteData.quote}
-              quoteLoading={!quoteFetched.has(selectedCvm.app_id)}
-              onVerify={handleVerify}
+              selectedInstance={selectedInstance}
+              getInstanceStatus={getInstanceStatus}
+              getInstanceLastVerified={getInstanceLastVerified}
+              getInstanceQuote={getInstanceQuote}
+              getInstanceSteps={getInstanceSteps}
+              getInstanceResult={getInstanceResult}
+              isInstanceQuoteLoading={isInstanceQuoteLoading}
+              onVerifyInstance={handleVerifyInstance}
             />
           )}
         </main>

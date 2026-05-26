@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { StepResult } from '../types/index.ts'
 import { StepCard } from './StepCard.tsx'
 import { MatIcon, Eyebrow } from '../../shared/ui/index.tsx'
@@ -16,7 +16,19 @@ function stepsCaption(passed: number, failed: number, total: number) {
 }
 
 export function StepList({ steps }: Readonly<StepListProps>) {
-  const [expandedSteps, setExpandedSteps] = useState<Set<number>>(new Set())
+  // Failed steps auto-expand unless the user explicitly collapsed them
+  const [userExpanded, setUserExpanded] = useState<Set<number>>(new Set())
+  const [userCollapsed, setUserCollapsed] = useState<Set<number>>(new Set())
+
+  const expandedSteps = useMemo(() => {
+    const set = new Set(userExpanded)
+    steps
+      .filter((s) => s.status === 'failed')
+      .forEach((s) => {
+        if (!userCollapsed.has(s.step)) set.add(s.step)
+      })
+    return set
+  }, [userExpanded, userCollapsed, steps])
 
   const passed = steps.filter((s) => s.status === 'verified').length
   const failed = steps.filter((s) => s.status === 'failed').length
@@ -26,28 +38,35 @@ export function StepList({ steps }: Readonly<StepListProps>) {
   const { label: summaryLabel, color: summaryColor } = stepsCaption(passed, failed, steps.length)
 
   const toggleStep = (stepNum: number) => {
-    setExpandedSteps((prev) => {
-      const next = new Set(prev)
-      if (next.has(stepNum)) next.delete(stepNum)
-      else next.add(stepNum)
-      return next
-    })
+    if (expandedSteps.has(stepNum)) {
+      setUserExpanded((prev) => {
+        const n = new Set(prev)
+        n.delete(stepNum)
+        return n
+      })
+      setUserCollapsed((prev) => new Set([...prev, stepNum]))
+    } else {
+      setUserExpanded((prev) => new Set([...prev, stepNum]))
+      setUserCollapsed((prev) => {
+        const n = new Set(prev)
+        n.delete(stepNum)
+        return n
+      })
+    }
   }
 
   const toggleAll = () => {
-    setExpandedSteps(allExpanded ? new Set() : new Set(activeSteps.map((s) => s.step)))
+    if (allExpanded) {
+      setUserExpanded(new Set())
+      setUserCollapsed(new Set(activeSteps.map((s) => s.step)))
+    } else {
+      setUserExpanded(new Set(activeSteps.map((s) => s.step)))
+      setUserCollapsed(new Set())
+    }
   }
 
   return (
-    <div
-      className="step-list"
-      style={{
-        borderRadius: 16,
-        border: '1px solid rgba(255,255,255,0.07)',
-        background: 'rgba(255,255,255,0.02)',
-        padding: '16px 20px',
-      }}
-    >
+    <div>
       <div
         className="step-list__header"
         style={{
@@ -55,7 +74,7 @@ export function StepList({ steps }: Readonly<StepListProps>) {
           alignItems: 'flex-start',
           justifyContent: 'space-between',
           gap: 12,
-          marginBottom: 16,
+          marginBottom: 14,
         }}
       >
         <div className="step-list__summary">
@@ -78,6 +97,7 @@ export function StepList({ steps }: Readonly<StepListProps>) {
             type="button"
             className="step-list__toggle-all"
             onClick={toggleAll}
+            aria-label={allExpanded ? 'Collapse all steps' : 'Expand all steps'}
             style={{
               display: 'inline-flex',
               alignItems: 'center',

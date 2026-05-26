@@ -131,7 +131,7 @@ function HashDataRow({
         {value}
       </div>
       <Verdict ok />
-      <CopyButton text={value} />
+      <CopyButton text={value} label={label} />
     </div>
   )
 }

@@ -2,7 +2,7 @@ import { StepList } from './StepList.tsx'
 import { MatIcon, PrimaryCTA, type Status } from '../../shared/ui/index.tsx'
 import type { ComponentRecord, StepResult } from '../types/index.ts'
 
-function IdlePrompt({ onVerify }: Readonly<{ onVerify: () => void }>) {
+function IdlePrompt({ onVerify }: Readonly<{ onVerify?: () => void }>) {
   return (
     <div
       style={{
@@ -28,9 +28,11 @@ function IdlePrompt({ onVerify }: Readonly<{ onVerify: () => void }>) {
           Click &ldquo;Verify now&rdquo; to start the 6-step TDX verification pipeline
         </p>
       </div>
-      <PrimaryCTA icon="verified_user" onClick={onVerify} size="md">
-        Verify now
-      </PrimaryCTA>
+      {onVerify && (
+        <PrimaryCTA icon="verified_user" onClick={onVerify} size="md">
+          Verify now
+        </PrimaryCTA>
+      )}
     </div>
   )
 }
@@ -44,7 +46,7 @@ export function VerificationSteps({
   status: Status
   steps: StepResult[]
   prevRecord: ComponentRecord | null
-  onVerify: () => void
+  onVerify?: () => void
 }>) {
   if (status === 'pending' && !prevRecord) return <IdlePrompt onVerify={onVerify} />
   const displaySteps = status === 'verifying' ? steps : (prevRecord?.result.steps ?? steps)
