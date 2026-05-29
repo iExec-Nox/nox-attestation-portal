@@ -209,30 +209,38 @@ export function AttestationPortal() {
         const verifier = new AttestationVerifier(
           buildStepUpdateCb(instance.instance_id, setBgProgress, setBgSteps),
         )
-        const attestResult = await verifier.verify(instance.url, quoteCache[instance.instance_id])
-        setBgProgress((prev) => {
-          const next = { ...prev }
-          delete next[instance.instance_id]
-          return next
-        })
-        setBgSteps((prev) => {
-          const next = { ...prev }
-          delete next[instance.instance_id]
-          return next
-        })
-        const now = Date.now()
-        setHistory((prev) => ({
-          ...prev,
-          [instance.instance_id]: {
-            status: attestResult.status,
-            completedAt: now,
-            result: attestResult,
-          },
-        }))
+        try {
+          const attestResult = await verifier.verify(instance.url, quoteCache[instance.instance_id])
+          const now = Date.now()
+          setHistory((prev) => ({
+            ...prev,
+            [instance.instance_id]: {
+              status: attestResult.status,
+              completedAt: now,
+              result: attestResult,
+            },
+          }))
+        } catch {
+          // unexpected throw (e.g. JSON.parse error) — cleanup still runs below
+        } finally {
+          setBgProgress((prev) => {
+            const next = { ...prev }
+            delete next[instance.instance_id]
+            return next
+          })
+          setBgSteps((prev) => {
+            const next = { ...prev }
+            delete next[instance.instance_id]
+            return next
+          })
+        }
       })
 
-      await Promise.all(promises)
-      setVerifyingAll(false)
+      try {
+        await Promise.all(promises)
+      } finally {
+        setVerifyingAll(false)
+      }
     },
     [status, verifyingAll, quoteCache],
   )

@@ -1,6 +1,10 @@
 import { useCallback, useReducer } from 'react'
 import type { CvmInfo, InstanceInfo, AttestationResult } from '../types/index.ts'
-import { AttestationVerifier, type PrefetchedQuote } from '../services/verifier.ts'
+import {
+  AttestationVerifier,
+  STEP_DEFINITIONS,
+  type PrefetchedQuote,
+} from '../services/verifier.ts'
 import { attestationReducer, makeInitialState } from './attestation-state.ts'
 import type { AttestationState } from './attestation-state.ts'
 
@@ -35,7 +39,21 @@ export function useAttestation(): UseAttestationReturn {
         dispatch({ type: 'STEPS_UPDATE', steps })
       })
 
-      const result = await verifier.verify(target.url, prefetched)
+      let result: AttestationResult
+      try {
+        result = await verifier.verify(target.url, prefetched)
+      } catch (err) {
+        result = {
+          status: 'failed',
+          steps: STEP_DEFINITIONS.map((s, i) => ({
+            step: i + 1,
+            name: s.name,
+            description: s.description,
+            status: 'pending' as const,
+          })),
+          errorMessage: err instanceof Error ? err.message : String(err),
+        }
+      }
       dispatch({ type: 'COMPLETE', result })
       return result
     },
