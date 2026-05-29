@@ -5,7 +5,6 @@ import {
   MatIcon,
   StatusBadge,
   Eyebrow,
-  PrimaryCTA,
   formatAgo,
   getComponentIcon,
   getComponentDescription,
@@ -15,7 +14,6 @@ import {
 interface ComponentsListProps {
   selected: CvmInfo | null
   onSelect: (cvm: CvmInfo) => void
-  onVerifyAll: (cvms: CvmInfo[]) => void
   onCvmsLoaded: (cvms: CvmInfo[]) => void
   isVerifying: boolean
   getStatus: (appId: string) => Status
@@ -130,9 +128,6 @@ function ComponentCard({
               font: '400 12px/18px var(--ct-font-ui)',
               color: 'var(--ct-fg-4)',
               marginTop: 4,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
             }}
           >
             {getComponentDescription(cvm.name)}
@@ -145,20 +140,35 @@ function ComponentCard({
               alignItems: 'center',
               justifyContent: 'space-between',
               gap: 8,
+              flexWrap: 'wrap',
             }}
           >
-            <span
-              style={{
-                font: '500 11px/16px var(--ct-font-ui)',
-                color: 'var(--ct-fg-5)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-              }}
-            >
-              <MatIcon name="schedule" size={12} color="var(--ct-fg-6)" />
-              {lastVerified ? `Verified ${formatAgo(lastVerified)}` : 'Not yet verified'}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span
+                style={{
+                  font: '500 11px/16px var(--ct-font-ui)',
+                  color: 'var(--ct-fg-5)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5,
+                }}
+              >
+                <MatIcon name="schedule" size={12} color="var(--ct-fg-6)" />
+                {lastVerified ? `Verified ${formatAgo(lastVerified)}` : 'Not yet verified'}
+              </span>
+              <span
+                style={{
+                  font: '500 11px/16px var(--ct-font-ui)',
+                  color: 'var(--ct-fg-5)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                }}
+              >
+                <MatIcon name="layers" size={12} color="var(--ct-fg-6)" />
+                {cvm.instances.length}
+              </span>
+            </div>
             <span
               style={{
                 font: '500 11px/16px var(--ct-font-mono)',
@@ -211,7 +221,6 @@ function friendlyError(raw: string): string {
 export function ComponentSelector({
   selected,
   onSelect,
-  onVerifyAll,
   onCvmsLoaded,
   isVerifying,
   getStatus,
@@ -291,15 +300,6 @@ export function ComponentSelector({
             />
           )}
         </div>
-        <PrimaryCTA
-          icon="verified_user"
-          onClick={() => onVerifyAll(cvms)}
-          loading={isVerifying}
-          disabled={loading || cvms.length === 0}
-          size="md"
-        >
-          Verify all
-        </PrimaryCTA>
       </div>
 
       {/* Loading skeletons */}

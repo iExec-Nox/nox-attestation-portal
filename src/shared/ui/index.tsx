@@ -19,18 +19,29 @@ export const MatIcon = ({
 )
 
 /* ── CopyButton: self-contained copy-to-clipboard ── */
-export const CopyButton = ({ text, size = 26 }: { text: string; size?: number }) => {
+export const CopyButton = ({
+  text,
+  size = 26,
+  label,
+}: {
+  text: string
+  size?: number
+  label?: string
+}) => {
   const [copied, setCopied] = useState(false)
   const copy = () => {
     navigator.clipboard.writeText(text).catch(() => {})
     setCopied(true)
     setTimeout(() => setCopied(false), 1100)
   }
+  const suffix = label ? ` ${label}` : ''
+  const ariaLabel = copied ? `Copied${suffix}` : `Copy${suffix}`
   return (
     <button
       type="button"
       onClick={copy}
-      title="Copy"
+      aria-label={ariaLabel}
+      title={ariaLabel}
       style={{
         width: size,
         height: size,
@@ -292,7 +303,7 @@ export const HashRow = ({
       {value}
     </div>
     <Verdict ok={ok} />
-    <CopyButton text={value} />
+    <CopyButton text={value} label={label} />
   </div>
 )
 
@@ -540,7 +551,7 @@ export function SummaryRow({
         {value}
       </div>
       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-        {copyable && <CopyButton text={value} size={24} />}
+        {copyable && <CopyButton text={value} size={24} label={label} />}
         {href && (
           <a
             href={href}

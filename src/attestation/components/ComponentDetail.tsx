@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   MatIcon,
   PrimaryCTA,
@@ -10,38 +10,417 @@ import {
   getComponentDescription,
   type Status,
 } from '../../shared/ui/index.tsx'
-import type { CvmInfo } from '../types/index.ts'
+import type { AttestationResult, CvmInfo, InstanceInfo, StepResult } from '../types/index.ts'
+import { StepList } from './StepList.tsx'
+import { AttestationReport } from './AttestationReport.tsx'
 
 interface ComponentDetailProps {
   cvm: CvmInfo
+  selectedInstance: InstanceInfo | null
+  getInstanceStatus: (instanceId: string) => Status
+  getInstanceLastVerified: (instanceId: string) => number | null
+  getInstanceQuote: (instanceId: string) => string | undefined
+  getInstanceSteps: (instanceId: string) => StepResult[] | null
+  getInstanceResult: (instanceId: string) => AttestationResult | null
+  isInstanceQuoteLoading: (instanceId: string) => boolean
+  onVerifyInstance: (instance: InstanceInfo) => void
+}
+
+interface InstanceCardProps {
+  instance: InstanceInfo
+  isExpanded: boolean
+  hasExpandable: boolean
   status: Status
   lastVerified: number | null
   quoteHex?: string
   quoteLoading?: boolean
+  instanceSteps: StepResult[] | null
+  instanceResult: AttestationResult | null
   onVerify: () => void
+  onToggleExpand: () => void
 }
 
-export function ComponentDetail({
-  cvm,
+function InstanceCard({
+  instance,
+  isExpanded,
+  hasExpandable,
   status,
   lastVerified,
   quoteHex,
   quoteLoading = false,
+  instanceSteps,
+  instanceResult,
   onVerify,
-}: Readonly<ComponentDetailProps>) {
+  onToggleExpand,
+}: Readonly<InstanceCardProps>) {
   const [quoteCopied, setQuoteCopied] = useState(false)
-  const [quoteExpanded, setQuoteExpanded] = useState(false)
+  const [quoteVisible, setQuoteVisible] = useState(false)
+  const [quoteFullExpanded, setQuoteFullExpanded] = useState(false)
 
-  const displayedQuote = quoteHex ?? null
+  // Auto-expand this card when verification transitions verifying → failed
+  const prevStatus = useRef<typeof status>(status)
+  const onToggleExpandRef = useRef(onToggleExpand)
+  // Update the ref after render — never during render (react-hooks/refs)
+  useEffect(() => {
+    onToggleExpandRef.current = onToggleExpand
+  }, [onToggleExpand])
+  useEffect(() => {
+    if (prevStatus.current === 'verifying' && status === 'failed' && !isExpanded) {
+      onToggleExpandRef.current()
+    }
+    prevStatus.current = status
+  }, [status, isExpanded])
+
+  const hasActiveSteps = instanceSteps?.some((s) => s.status !== 'pending') ?? false
 
   const handleCopyQuote = () => {
-    if (displayedQuote) navigator.clipboard.writeText(displayedQuote).catch(() => {})
+    if (quoteHex) navigator.clipboard.writeText(quoteHex).catch(() => {})
     setQuoteCopied(true)
     setTimeout(() => setQuoteCopied(false), 1100)
   }
 
+  return (
+    <div
+      style={{
+        borderRadius: 14,
+        border: `1px solid ${status === 'failed' ? 'rgba(248,113,113,0.25)' : 'rgba(255,255,255,0.07)'}`,
+        background: status === 'failed' ? 'rgba(248,113,113,0.03)' : 'rgba(255,255,255,0.02)',
+        overflow: 'hidden',
+        transition: 'border-color 200ms ease, background 200ms ease',
+      }}
+    >
+      {/* Header row */}
+      <div
+        style={{
+          padding: '12px 14px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          flexWrap: 'wrap',
+        }}
+      >
+        {/* Machine ID — most relevant identity for operators */}
+        <span
+          style={{
+            font: '600 12px/1 var(--ct-font-mono)',
+            color: 'var(--ct-fg-2)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 5,
+            flex: 1,
+            minWidth: 100,
+          }}
+        >
+          <MatIcon name="dns" size={13} color="var(--ct-fg-5)" />
+          {instance.machine_id}
+        </span>
+
+        <span
+          style={{
+            font: '500 10px/1 var(--ct-font-mono)',
+            color: 'var(--ct-fg-5)',
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
+          }}
+        >
+          {instance.instance_id.slice(0, 12)}…
+        </span>
+
+        <StatusBadge status={status} />
+
+        {status === 'pending' && (
+          <PrimaryCTA icon="verified_user" onClick={onVerify} size="sm">
+            Verify
+          </PrimaryCTA>
+        )}
+        {status === 'verifying' && (
+          <PrimaryCTA icon="verified_user" loading size="sm">
+            Verifying
+          </PrimaryCTA>
+        )}
+        {(status === 'verified' || status === 'failed') && (
+          <SecondaryButton icon="refresh" onClick={onVerify} size="sm">
+            Re-verify
+          </SecondaryButton>
+        )}
+
+        {hasExpandable && (
+          <button
+            type="button"
+            onClick={onToggleExpand}
+            aria-label={
+              isExpanded ? 'Collapse verification results' : 'Expand verification results'
+            }
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 8,
+              background: isExpanded ? 'var(--ct-brand-tint-18)' : 'rgba(255,255,255,0.04)',
+              border: `1px solid ${isExpanded ? 'var(--ct-brand-border)' : 'rgba(255,255,255,0.08)'}`,
+              cursor: 'pointer',
+              color: isExpanded ? 'var(--ct-brand)' : 'var(--ct-fg-4)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <MatIcon name={isExpanded ? 'expand_less' : 'expand_more'} size={16} />
+          </button>
+        )}
+      </div>
+
+      {/* Last verified */}
+      {lastVerified && (
+        <div
+          style={{
+            padding: '0 14px 10px',
+            font: '500 11px/1 var(--ct-font-ui)',
+            color: 'var(--ct-fg-5)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 5,
+          }}
+        >
+          <MatIcon name="schedule" size={12} color="var(--ct-fg-6)" />
+          Verified {formatAgo(lastVerified)}
+        </div>
+      )}
+
+      {/* Quote — collapsed by default, shown on demand */}
+      <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '7px 14px',
+          }}
+        >
+          <MatIcon name="lock" size={13} color="var(--ct-fg-5)" />
+          <span
+            style={{
+              font: '700 10px/1 var(--ct-font-ui)',
+              letterSpacing: '0.8px',
+              textTransform: 'uppercase',
+              color: 'var(--ct-fg-5)',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            TDX Quote
+          </span>
+
+          {!quoteHex && quoteLoading && (
+            <span
+              style={{
+                height: 7,
+                width: 80,
+                borderRadius: 4,
+                background: 'rgba(255,255,255,0.07)',
+                animation: 'badge-pulse 1.5s ease-in-out infinite',
+                display: 'inline-block',
+              }}
+            />
+          )}
+
+          <div style={{ flex: 1 }} />
+
+          {!quoteHex && !quoteLoading && (
+            <span
+              style={{
+                font: '400 11px/1 var(--ct-font-ui)',
+                color: 'var(--ct-fg-6)',
+                fontStyle: 'italic',
+              }}
+            >
+              Unavailable
+            </span>
+          )}
+          {quoteHex && (
+            <button
+              type="button"
+              onClick={() => setQuoteVisible((v) => !v)}
+              aria-label={quoteVisible ? 'Hide TDX quote' : 'Show TDX quote'}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                height: 22,
+                padding: '0 8px',
+                borderRadius: 6,
+                background: quoteVisible ? 'var(--ct-brand-tint-18)' : 'rgba(255,255,255,0.04)',
+                border: `1px solid ${quoteVisible ? 'var(--ct-brand-border)' : 'rgba(255,255,255,0.08)'}`,
+                cursor: 'pointer',
+                color: quoteVisible ? 'var(--ct-brand)' : 'var(--ct-fg-4)',
+                font: '600 11px/1 var(--ct-font-ui)',
+                flexShrink: 0,
+              }}
+            >
+              <MatIcon name={quoteVisible ? 'visibility_off' : 'visibility'} size={12} />
+              {quoteVisible ? 'Hide' : 'Show'}
+            </button>
+          )}
+        </div>
+
+        {quoteHex && quoteVisible && (
+          <>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '6px 14px 8px',
+                borderTop: '1px solid rgba(255,255,255,0.05)',
+              }}
+            >
+              <span
+                title={quoteHex}
+                style={{
+                  font: '500 11px/1 var(--ct-font-mono)',
+                  color: 'var(--ct-fg-3)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  flex: 1,
+                }}
+              >
+                {quoteHex}
+              </span>
+              <button
+                type="button"
+                onClick={handleCopyQuote}
+                aria-label="Copy TDX quote"
+                title="Copy full quote"
+                style={{
+                  width: 26,
+                  height: 26,
+                  borderRadius: 7,
+                  background: quoteCopied ? 'var(--ct-brand-tint-18)' : 'transparent',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  cursor: 'pointer',
+                  color: quoteCopied ? 'var(--ct-brand)' : 'var(--ct-fg-4)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                <MatIcon name={quoteCopied ? 'check' : 'content_copy'} size={13} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuoteFullExpanded((v) => !v)}
+                aria-label={quoteFullExpanded ? 'Collapse full quote' : 'Expand full quote hex'}
+                title={quoteFullExpanded ? 'Collapse' : 'Expand full hex'}
+                style={{
+                  width: 26,
+                  height: 26,
+                  borderRadius: 7,
+                  background: 'transparent',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  cursor: 'pointer',
+                  color: 'var(--ct-fg-4)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                <MatIcon name={quoteFullExpanded ? 'expand_less' : 'expand_more'} size={13} />
+              </button>
+            </div>
+
+            {quoteFullExpanded && (
+              <pre
+                style={{
+                  margin: 0,
+                  padding: '10px 14px',
+                  borderTop: '1px solid rgba(255,255,255,0.06)',
+                  font: '500 11px/18px var(--ct-font-mono)',
+                  color: 'var(--ct-fg-3)',
+                  background: 'rgba(0,0,0,0.15)',
+                  wordBreak: 'break-all',
+                  whiteSpace: 'pre-wrap',
+                  maxHeight: 200,
+                  overflowY: 'auto',
+                }}
+              >
+                {quoteHex}
+              </pre>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Expanded: verification steps + docker compose */}
+      {isExpanded && (hasActiveSteps || instanceResult) && (
+        <div
+          style={{
+            borderTop: '1px solid rgba(255,255,255,0.06)',
+            padding: '14px 14px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 14,
+          }}
+        >
+          {hasActiveSteps && instanceSteps && <StepList steps={instanceSteps} />}
+          {instanceResult && <AttestationReport result={instanceResult} />}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function ComponentDetail({
+  cvm,
+  selectedInstance,
+  getInstanceStatus,
+  getInstanceLastVerified,
+  getInstanceQuote,
+  getInstanceSteps,
+  getInstanceResult,
+  isInstanceQuoteLoading,
+  onVerifyInstance,
+}: Readonly<ComponentDetailProps>) {
+  // Selected instance auto-expands unless the user explicitly collapsed it
+  const [userExpanded, setUserExpanded] = useState<Set<string>>(new Set())
+  const [userCollapsed, setUserCollapsed] = useState<Set<string>>(new Set())
+
+  const expandedInstances = useMemo(() => {
+    const set = new Set(userExpanded)
+    if (selectedInstance && !userCollapsed.has(selectedInstance.instance_id)) {
+      set.add(selectedInstance.instance_id)
+    }
+    return set
+  }, [userExpanded, userCollapsed, selectedInstance])
+
+  const toggleExpand = (instanceId: string) => {
+    if (expandedInstances.has(instanceId)) {
+      setUserExpanded((prev) => {
+        const n = new Set(prev)
+        n.delete(instanceId)
+        return n
+      })
+      setUserCollapsed((prev) => new Set([...prev, instanceId]))
+    } else {
+      setUserExpanded((prev) => new Set([...prev, instanceId]))
+      setUserCollapsed((prev) => {
+        const n = new Set(prev)
+        n.delete(instanceId)
+        return n
+      })
+    }
+  }
+
   const icon = getComponentIcon(cvm.name)
   const description = getComponentDescription(cvm.name)
+
+  const instanceStatuses = cvm.instances.map((i) => getInstanceStatus(i.instance_id))
+  const statusSet = new Set(instanceStatuses)
+  let overallStatus: Status = 'pending'
+  if (statusSet.has('verifying')) overallStatus = 'verifying'
+  else if (statusSet.has('failed')) overallStatus = 'failed'
+  else if (statusSet.has('verified')) overallStatus = 'verified'
 
   return (
     <div
@@ -49,14 +428,11 @@ export function ComponentDetail({
         borderRadius: 18,
         border: '1px solid rgba(255,255,255,0.07)',
         background: 'rgba(255,255,255,0.02)',
-        padding: '20px 22px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 16,
+        overflow: 'hidden',
       }}
     >
-      {/* Top row: icon + info + actions */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+      {/* Component header */}
+      <div style={{ padding: '20px 22px', display: 'flex', alignItems: 'flex-start', gap: 16 }}>
         <div
           style={{
             width: 52,
@@ -94,11 +470,11 @@ export function ComponentDetail({
             >
               {cvm.name}
             </span>
-            <StatusBadge status={status} size="lg" />
+            <StatusBadge status={overallStatus} size="lg" />
           </div>
           <div
             style={{
-              font: '400 13px/19px var(--ct-font-ui)',
+              font: '400 13px/20px var(--ct-font-ui)',
               color: 'var(--ct-fg-4)',
               marginTop: 6,
             }}
@@ -106,218 +482,46 @@ export function ComponentDetail({
             {description}
           </div>
         </div>
-
-        <div style={{ display: 'flex', gap: 8, flexShrink: 0, paddingTop: 4 }}>
-          {status === 'pending' && (
-            <PrimaryCTA icon="verified_user" onClick={onVerify} size="md">
-              Verify now
-            </PrimaryCTA>
-          )}
-          {status === 'verifying' && (
-            <PrimaryCTA icon="verified_user" loading size="md">
-              Verifying
-            </PrimaryCTA>
-          )}
-          {(status === 'verified' || status === 'failed') && (
-            <SecondaryButton icon="refresh" onClick={onVerify} size="md">
-              Re-verify
-            </SecondaryButton>
-          )}
-        </div>
       </div>
 
-      {/* Meta row */}
+      {/* Instances section — inside the same card */}
       <div
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 20,
-          paddingTop: 10,
           borderTop: '1px solid rgba(255,255,255,0.06)',
+          padding: '16px 22px 20px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 10,
         }}
       >
-        <span
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            font: '500 12px/1 var(--ct-font-ui)',
-            color: 'var(--ct-fg-4)',
-          }}
-        >
-          <MatIcon name="schedule" size={14} color="var(--ct-fg-5)" />
-          {lastVerified ? `Last verified ${formatAgo(lastVerified)}` : 'Not yet verified'}
-        </span>
-        {cvm.instance && (
-          <>
-            <span style={{ color: 'rgba(255,255,255,0.15)', font: '400 12px/1 var(--ct-font-ui)' }}>
-              ·
-            </span>
-            <span
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                font: '500 12px/1 var(--ct-font-mono)',
-                color: 'var(--ct-fg-4)',
-              }}
-            >
-              <MatIcon name="dns" size={14} color="var(--ct-fg-5)" />
-              {cvm.instance}
-            </span>
-          </>
-        )}
-        <span style={{ color: 'rgba(255,255,255,0.15)', font: '400 12px/1 var(--ct-font-ui)' }}>
-          ·
-        </span>
-        <span
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            font: '500 12px/1 var(--ct-font-mono)',
-            color: 'var(--ct-fg-4)',
-            fontVariantNumeric: 'tabular-nums',
-          }}
-        >
-          <MatIcon name="fingerprint" size={14} color="var(--ct-fg-5)" />
-          {cvm.app_id.slice(0, 24)}…
-        </span>
-      </div>
+        <Eyebrow>Instances ({cvm.instances.length})</Eyebrow>
 
-      {/* Quote row */}
-      <div
-        style={{
-          borderRadius: 10,
-          background: 'rgba(255,255,255,0.03)',
-          border: '1px solid rgba(255,255,255,0.07)',
-          overflow: 'hidden',
-        }}
-      >
-        {/* Single compact line: icon · Quote · hex (truncated) · copy · expand */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'auto auto 1fr auto',
-            gap: 8,
-            alignItems: 'center',
-            padding: '8px 12px',
-          }}
-        >
-          <MatIcon name="lock" size={14} color="var(--ct-fg-5)" />
-          <span
-            style={{
-              font: '700 10px/1 var(--ct-font-ui)',
-              letterSpacing: '0.8px',
-              textTransform: 'uppercase',
-              color: 'var(--ct-fg-5)',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            Quote
-          </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 2 }}>
+          {cvm.instances.map((instance) => {
+            const instanceSteps = getInstanceSteps(instance.instance_id)
+            const instanceResult = getInstanceResult(instance.instance_id)
+            const hasActiveSteps = instanceSteps?.some((s) => s.status !== 'pending') ?? false
+            const hasExpandable = hasActiveSteps || instanceResult !== null
+            const isExpanded = expandedInstances.has(instance.instance_id)
 
-          {/* Hex preview — one line, ellipsis */}
-          {displayedQuote ? (
-            <span
-              title={displayedQuote}
-              style={{
-                font: '500 11px/1 var(--ct-font-mono)',
-                color: 'var(--ct-fg-3)',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {displayedQuote}
-            </span>
-          ) : quoteLoading ? (
-            <span
-              style={{
-                height: 8,
-                width: 120,
-                borderRadius: 4,
-                background: 'rgba(255,255,255,0.07)',
-                animation: 'badge-pulse 1.5s ease-in-out infinite',
-                display: 'inline-block',
-              }}
-            />
-          ) : (
-            <span
-              style={{
-                font: '400 11px/1 var(--ct-font-ui)',
-                color: 'var(--ct-fg-6)',
-                fontStyle: 'italic',
-              }}
-            >
-              Unavailable
-            </span>
-          )}
-
-          {/* Action buttons — only when quote is available */}
-          {displayedQuote && (
-            <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-              <button
-                type="button"
-                onClick={handleCopyQuote}
-                title="Copy full quote"
-                style={{
-                  width: 26,
-                  height: 26,
-                  borderRadius: 7,
-                  background: quoteCopied ? 'var(--ct-brand-tint-18)' : 'transparent',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  cursor: 'pointer',
-                  color: quoteCopied ? 'var(--ct-brand)' : 'var(--ct-fg-4)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <MatIcon name={quoteCopied ? 'check' : 'content_copy'} size={13} />
-              </button>
-              <button
-                type="button"
-                onClick={() => setQuoteExpanded((v) => !v)}
-                title={quoteExpanded ? 'Collapse' : 'Expand'}
-                style={{
-                  width: 26,
-                  height: 26,
-                  borderRadius: 7,
-                  background: 'transparent',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  cursor: 'pointer',
-                  color: 'var(--ct-fg-4)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <MatIcon name={quoteExpanded ? 'expand_less' : 'expand_more'} size={13} />
-              </button>
-            </div>
-          )}
+            return (
+              <InstanceCard
+                key={instance.instance_id}
+                instance={instance}
+                isExpanded={isExpanded}
+                hasExpandable={hasExpandable}
+                status={getInstanceStatus(instance.instance_id)}
+                lastVerified={getInstanceLastVerified(instance.instance_id)}
+                quoteHex={getInstanceQuote(instance.instance_id)}
+                quoteLoading={isInstanceQuoteLoading(instance.instance_id)}
+                instanceSteps={instanceSteps}
+                instanceResult={instanceResult}
+                onVerify={() => onVerifyInstance(instance)}
+                onToggleExpand={() => toggleExpand(instance.instance_id)}
+              />
+            )
+          })}
         </div>
-
-        {/* Expanded box */}
-        {displayedQuote && quoteExpanded && (
-          <pre
-            style={{
-              margin: 0,
-              padding: '10px 14px',
-              borderTop: '1px solid rgba(255,255,255,0.06)',
-              font: '500 11px/18px var(--ct-font-mono)',
-              color: 'var(--ct-fg-3)',
-              background: 'rgba(0,0,0,0.15)',
-              wordBreak: 'break-all',
-              whiteSpace: 'pre-wrap',
-              maxHeight: 200,
-              overflowY: 'auto',
-            }}
-          >
-            {displayedQuote}
-          </pre>
-        )}
       </div>
     </div>
   )

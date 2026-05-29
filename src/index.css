@@ -180,3 +180,17 @@
     opacity: 0.5;
   }
 }
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Keyboard navigation focus ring */
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--ct-brand);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
