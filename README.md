@@ -1,6 +1,6 @@
 # NOX Attestation Explorer
 
-A web interface for verifying the integrity of [NOX Protocol](https://nox.xyz) components running inside Intel TDX Confidential VMs (CVMs). It fetches TDX quotes from live CVM instances, replays the RTMR measurement chain, and presents a step-by-step attestation report.
+A web interface for verifying the integrity of [NOX Protocol](https://docs.noxprotocol.io/getting-started/welcome) components running inside Intel TDX Confidential VMs (CVMs). It fetches TDX quotes from live CVM instances, replays the RTMR measurement chain, and presents a step-by-step attestation report.
 
 ## What it does
 
