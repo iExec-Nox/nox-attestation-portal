@@ -63,7 +63,7 @@ function InstanceCard({
   // Update the ref after render — never during render (react-hooks/refs)
   useEffect(() => {
     onToggleExpandRef.current = onToggleExpand
-  })
+  }, [onToggleExpand])
   useEffect(() => {
     if (prevStatus.current === 'verifying' && status === 'failed' && !isExpanded) {
       onToggleExpandRef.current()
@@ -419,8 +419,8 @@ export function ComponentDetail({
   const statusSet = new Set(instanceStatuses)
   let overallStatus: Status = 'pending'
   if (statusSet.has('verifying')) overallStatus = 'verifying'
-  else if (statusSet.has('verified')) overallStatus = 'verified'
   else if (statusSet.has('failed')) overallStatus = 'failed'
+  else if (statusSet.has('verified')) overallStatus = 'verified'
 
   return (
     <div
