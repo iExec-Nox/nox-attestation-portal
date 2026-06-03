@@ -1,12 +1,1 @@
-{
-  "rewrites": [
-    {
-      "source": "/api/phala/:path*",
-      "destination": "https://cloud-api.phala.network/:path*"
-    },
-    {
-      "source": "/api/cvms",
-      "destination": "https://nox-cvms-exporter.ovh-tdx-dev.noxprotocol.dev:8443/cvms"
-    }
-  ]
-}
+{}
