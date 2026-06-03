@@ -24,6 +24,7 @@ interface ComponentDetailProps {
   getInstanceResult: (instanceId: string) => AttestationResult | null
   isInstanceQuoteLoading: (instanceId: string) => boolean
   onVerifyInstance: (instance: InstanceInfo) => void
+  onVerifyAllInstances: () => void
 }
 
 interface InstanceCardProps {
@@ -351,6 +352,7 @@ export function ComponentDetail({
   getInstanceResult,
   isInstanceQuoteLoading,
   onVerifyInstance,
+  onVerifyAllInstances,
 }: Readonly<ComponentDetailProps>) {
   // Selected instance auto-expands unless the user explicitly collapsed it
   const [userExpanded, setUserExpanded] = useState<Set<string>>(new Set())
@@ -388,6 +390,7 @@ export function ComponentDetail({
   const instanceStatuses = cvm.instances.map((i) => getInstanceStatus(i.instance_id))
   const verifiedCount = instanceStatuses.filter((s) => s === 'verified').length
   const totalCount = cvm.instances.length
+  const noPendingInstances = totalCount > 0 && !instanceStatuses.includes('pending')
 
   return (
     <div
@@ -399,7 +402,7 @@ export function ComponentDetail({
       }}
     >
       {/* Component header */}
-      <div style={{ padding: '20px 22px', display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+      <div style={{ padding: '20px 22px', display: 'flex', alignItems: 'center', gap: 16 }}>
         <div
           style={{
             width: 52,
@@ -474,6 +477,16 @@ export function ComponentDetail({
             {description}
           </div>
         </div>
+
+        {noPendingInstances ? (
+          <SecondaryButton icon="refresh" onClick={onVerifyAllInstances} size="sm">
+            Re-verify all
+          </SecondaryButton>
+        ) : (
+          <PrimaryCTA icon="verified_user" onClick={onVerifyAllInstances} size="sm">
+            Verify all
+          </PrimaryCTA>
+        )}
       </div>
 
       {/* Instances section — inside the same card */}
@@ -486,7 +499,26 @@ export function ComponentDetail({
           gap: 10,
         }}
       >
-        <Eyebrow>Instances ({cvm.instances.length})</Eyebrow>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 10,
+          }}
+        >
+          <Eyebrow>Instances ({cvm.instances.length})</Eyebrow>
+          {totalCount > 1 && (
+            <SecondaryButton
+              icon={noPendingInstances ? 'refresh' : 'verified_user'}
+              onClick={onVerifyAllInstances}
+              disabled={instanceStatuses.every((s) => s === 'verifying')}
+              size="sm"
+            >
+              {noPendingInstances ? 'Re-verify all' : 'Verify all'}
+            </SecondaryButton>
+          )}
+        </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 2 }}>
           {cvm.instances.map((instance) => {
