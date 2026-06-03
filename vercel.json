@@ -1,1 +1,8 @@
-{}
+{
+  "rewrites": [
+    {
+      "source": "/api/phala/:path*",
+      "destination": "https://cloud-api.phala.network/:path*"
+    }
+  ]
+}
