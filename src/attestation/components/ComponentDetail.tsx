@@ -96,35 +96,46 @@ function InstanceCard({
           display: 'flex',
           alignItems: 'center',
           gap: 10,
-          flexWrap: 'wrap',
         }}
       >
-        {/* Machine ID — most relevant identity for operators */}
-        <span
+        {/* Identity: instance id + machine on one line */}
+        <div
           style={{
-            font: '600 12px/1 var(--ct-font-mono)',
-            color: 'var(--ct-fg-2)',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 5,
             flex: 1,
-            minWidth: 100,
+            minWidth: 0,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
           }}
         >
-          <MatIcon name="dns" size={13} color="var(--ct-fg-5)" />
-          {instance.machine_id}
-        </span>
-
-        <span
-          style={{
-            font: '500 10px/1 var(--ct-font-mono)',
-            color: 'var(--ct-fg-5)',
-            whiteSpace: 'nowrap',
-            flexShrink: 0,
-          }}
-        >
-          {instance.instance_id.slice(0, 12)}…
-        </span>
+          <span
+            style={{
+              font: '600 12px/1 var(--ct-font-mono)',
+              color: 'var(--ct-fg-2)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              flexShrink: 0,
+            }}
+            title={instance.instance_id}
+          >
+            <MatIcon name="fingerprint" size={13} color="var(--ct-fg-5)" />
+            {instance.instance_id.slice(0, 8)}…{instance.instance_id.slice(-5)}
+          </span>
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              flexShrink: 0,
+            }}
+          >
+            <MatIcon name="dns" size={11} color="var(--ct-fg-6)" />
+            <span style={{ font: '500 10px/1 var(--ct-font-mono)', color: 'var(--ct-fg-6)' }}>
+              {instance.machine_id}
+            </span>
+          </span>
+        </div>
 
         <StatusBadge status={status} />
 
