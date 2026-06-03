@@ -309,6 +309,7 @@ export function AttestationPortal() {
             getStatus={getStatus}
             getProgress={getProgress}
             getLastVerified={getLastVerified}
+            getInstanceStatus={getInstanceStatus}
           />
         </div>
 

@@ -3,7 +3,6 @@ import type { CvmInfo } from '../types/index.ts'
 import { fetchCvms } from '../services/quote-service.ts'
 import {
   MatIcon,
-  StatusBadge,
   Eyebrow,
   formatAgo,
   getComponentIcon,
@@ -19,6 +18,7 @@ interface ComponentsListProps {
   getStatus: (appId: string) => Status
   getProgress: (appId: string) => number
   getLastVerified: (appId: string) => number | null
+  getInstanceStatus: (instanceId: string) => Status
 }
 
 interface ComponentCardProps {
@@ -29,6 +29,7 @@ interface ComponentCardProps {
   lastVerified: number | null
   disabled: boolean
   onClick: () => void
+  getInstanceStatus: (instanceId: string) => Status
 }
 
 function getSegmentColor(done: boolean, active: boolean): string {
@@ -45,9 +46,14 @@ function ComponentCard({
   lastVerified,
   disabled,
   onClick,
+  getInstanceStatus,
 }: Readonly<ComponentCardProps>) {
   const isFail = status === 'failed'
   const accent = isFail ? '#F87171' : 'var(--ct-brand)'
+  const verifiedCount = cvm.instances.filter(
+    (i) => getInstanceStatus(i.instance_id) === 'verified',
+  ).length
+  const totalCount = cvm.instances.length
   return (
     <button
       type="button"
@@ -120,7 +126,37 @@ function ComponentCard({
             >
               {cvm.name}
             </span>
-            <StatusBadge status={status} />
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                height: 20,
+                padding: '0 8px',
+                borderRadius: 6,
+                background:
+                  verifiedCount === totalCount && totalCount > 0
+                    ? 'var(--ct-brand-tint-18)'
+                    : 'rgba(255,255,255,0.06)',
+                border: `1px solid ${verifiedCount === totalCount && totalCount > 0 ? 'var(--ct-brand-border)' : 'rgba(255,255,255,0.1)'}`,
+                font: '600 11px/1 var(--ct-font-ui)',
+                color:
+                  verifiedCount === totalCount && totalCount > 0
+                    ? 'var(--ct-brand)'
+                    : 'var(--ct-fg-4)',
+              }}
+            >
+              <MatIcon
+                name="verified"
+                size={11}
+                color={
+                  verifiedCount === totalCount && totalCount > 0
+                    ? 'var(--ct-brand)'
+                    : 'var(--ct-fg-5)'
+                }
+              />
+              {verifiedCount}/{totalCount}
+            </span>
           </div>
 
           <div
@@ -226,6 +262,7 @@ export function ComponentSelector({
   getStatus,
   getProgress,
   getLastVerified,
+  getInstanceStatus,
 }: Readonly<ComponentsListProps>) {
   const [cvms, setCvms] = useState<CvmInfo[]>([])
   const [loading, setLoading] = useState(true)
@@ -241,22 +278,6 @@ export function ComponentSelector({
       .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false))
   }, [onCvmsLoaded, retryKey])
-
-  const attestedCount = cvms.filter((c) => getStatus(c.app_id) === 'verified').length
-  const failedCount = cvms.filter((c) => getStatus(c.app_id) === 'failed').length
-  const allDone = !loading && attestedCount === cvms.length && cvms.length > 0
-
-  function counterColor(): string {
-    if (allDone) return 'var(--ct-success-light)'
-    if (failedCount > 0) return '#FCA5A5'
-    return 'var(--ct-fg-4)'
-  }
-
-  function counterLabel(): string {
-    if (attestedCount === 0) return `${cvms.length} to verify`
-    if (allDone) return `All ${cvms.length} verified`
-    return `${attestedCount} of ${cvms.length} verified`
-  }
 
   return (
     <aside style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -274,19 +295,6 @@ export function ComponentSelector({
           <Eyebrow>NOX Components</Eyebrow>
 
           {/* Compact progress indicator */}
-          {!loading && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-              <span
-                style={{
-                  font: '500 12px/1 var(--ct-font-ui)',
-                  color: counterColor(),
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {counterLabel()}
-              </span>
-            </div>
-          )}
           {loading && (
             <div
               style={{
@@ -413,6 +421,7 @@ export function ComponentSelector({
               lastVerified={getLastVerified(cvm.app_id)}
               disabled={isVerifying && selected?.app_id !== cvm.app_id}
               onClick={() => onSelect(cvm)}
+              getInstanceStatus={getInstanceStatus}
             />
           ))}
         </div>
