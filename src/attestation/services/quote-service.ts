@@ -3,8 +3,7 @@ import type { CvmInfo, QuoteApiResponse, AppInfoApiResponse } from '../types/ind
 const CVMS_URL = (import.meta.env.VITE_CVMS_URL as string) ?? '/api/cvms'
 
 function cvmFetch(cvmUrl: string, path: string): Promise<Response> {
-  const { host } = new URL(cvmUrl)
-  return fetch(`/api/cvm-proxy/${host}${path}`)
+  return fetch(`${cvmUrl}${path}`)
 }
 
 export async function fetchCvms(): Promise<CvmInfo[]> {
