@@ -3,6 +3,8 @@ import type { CvmInfo } from '../types/index.ts'
 import { fetchCvms } from '../services/quote-service.ts'
 import {
   MatIcon,
+  PrimaryCTA,
+  SecondaryButton,
   Eyebrow,
   formatAgo,
   getComponentIcon,
@@ -19,6 +21,7 @@ interface ComponentsListProps {
   getProgress: (appId: string) => number
   getLastVerified: (appId: string) => number | null
   getInstanceStatus: (instanceId: string) => Status
+  onVerifyAll: () => void
 }
 
 interface ComponentCardProps {
@@ -263,6 +266,7 @@ export function ComponentSelector({
   getProgress,
   getLastVerified,
   getInstanceStatus,
+  onVerifyAll,
 }: Readonly<ComponentsListProps>) {
   const [cvms, setCvms] = useState<CvmInfo[]>([])
   const [loading, setLoading] = useState(true)
@@ -279,6 +283,11 @@ export function ComponentSelector({
       .finally(() => setLoading(false))
   }, [onCvmsLoaded, retryKey])
 
+  const noPendingInstances =
+    !loading &&
+    cvms.length > 0 &&
+    !cvms.some((cvm) => cvm.instances.some((i) => getInstanceStatus(i.instance_id) === 'pending'))
+
   return (
     <aside style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* Section header */}
@@ -291,23 +300,19 @@ export function ComponentSelector({
           padding: '0 2px',
         }}
       >
-        <div style={{ minWidth: 0 }}>
-          <Eyebrow>NOX Components</Eyebrow>
+        <Eyebrow>NOX Components</Eyebrow>
 
-          {/* Compact progress indicator */}
-          {loading && (
-            <div
-              style={{
-                marginTop: 8,
-                height: 4,
-                width: 72,
-                borderRadius: 2,
-                background: 'rgba(255,255,255,0.07)',
-                animation: 'badge-pulse 1.5s ease-in-out infinite',
-              }}
-            />
-          )}
-        </div>
+        {!loading &&
+          !error &&
+          (noPendingInstances ? (
+            <SecondaryButton icon="refresh" onClick={onVerifyAll} disabled={isVerifying} size="sm">
+              Re-verify all
+            </SecondaryButton>
+          ) : (
+            <PrimaryCTA icon="verified_user" onClick={onVerifyAll} disabled={isVerifying} size="sm">
+              Verify all
+            </PrimaryCTA>
+          ))}
       </div>
 
       {/* Loading skeletons */}

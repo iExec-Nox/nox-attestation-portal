@@ -12,6 +12,7 @@ interface ComponentViewProps {
   getInstanceResult: (instanceId: string) => AttestationResult | null
   isInstanceQuoteLoading: (instanceId: string) => boolean
   onVerifyInstance: (instance: InstanceInfo) => void
+  onVerifyAllInstances: () => void
 }
 
 export function ComponentView({
@@ -24,6 +25,7 @@ export function ComponentView({
   getInstanceResult,
   isInstanceQuoteLoading,
   onVerifyInstance,
+  onVerifyAllInstances,
 }: Readonly<ComponentViewProps>) {
   return (
     <ComponentDetail
@@ -36,6 +38,7 @@ export function ComponentView({
       getInstanceResult={getInstanceResult}
       isInstanceQuoteLoading={isInstanceQuoteLoading}
       onVerifyInstance={onVerifyInstance}
+      onVerifyAllInstances={onVerifyAllInstances}
     />
   )
 }
