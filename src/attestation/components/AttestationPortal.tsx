@@ -245,9 +245,9 @@ export function AttestationPortal() {
     [status, verifyingAll, quoteCache],
   )
 
-  const handleRefreshAll = useCallback(() => {
-    void handleVerifyAll(cvms)
-  }, [handleVerifyAll, cvms])
+  const handleVerifyAllInstances = useCallback(() => {
+    if (selectedCvm) void handleVerifyAll([selectedCvm])
+  }, [handleVerifyAll, selectedCvm])
 
   const getInstanceResult = useCallback(
     (instanceId: string): AttestationResult | null => {
@@ -256,16 +256,6 @@ export function AttestationPortal() {
     },
     [selectedInstance, result, history],
   )
-
-  const allInstances = cvms.flatMap((c) => c.instances)
-  const verifiedCount = allInstances.filter(
-    (i) => history[i.instance_id]?.status === 'verified',
-  ).length
-  const failedCount = allInstances.filter((i) => history[i.instance_id]?.status === 'failed').length
-  const firstFailedInstance = allInstances.find((i) => history[i.instance_id]?.status === 'failed')
-  const firstFailedCvm = firstFailedInstance
-    ? cvms.find((c) => c.instances.some((i) => i.instance_id === firstFailedInstance.instance_id))
-    : undefined
 
   return (
     <div
@@ -276,15 +266,7 @@ export function AttestationPortal() {
         flexDirection: 'column',
       }}
     >
-      <TopBar
-        total={allInstances.length}
-        verifiedCount={verifiedCount}
-        failedCount={failedCount}
-        firstFailedName={firstFailedCvm?.name}
-        verifying={status === 'verifying' || verifyingAll}
-        onRefresh={handleRefreshAll}
-        onHome={handleHome}
-      />
+      <TopBar onHome={handleHome} />
 
       <div
         style={{
@@ -310,6 +292,7 @@ export function AttestationPortal() {
             getProgress={getProgress}
             getLastVerified={getLastVerified}
             getInstanceStatus={getInstanceStatus}
+            onVerifyAll={() => void handleVerifyAll(cvms)}
           />
         </div>
 
@@ -327,6 +310,7 @@ export function AttestationPortal() {
               getInstanceResult={getInstanceResult}
               isInstanceQuoteLoading={isInstanceQuoteLoading}
               onVerifyInstance={handleVerifyInstance}
+              onVerifyAllInstances={handleVerifyAllInstances}
             />
           )}
         </main>
