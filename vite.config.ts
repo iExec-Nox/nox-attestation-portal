@@ -13,6 +13,13 @@ export default defineConfig({
   server: {
     port: 3000,
     open: true,
+    proxy: {
+      '/api/phala': {
+        target: 'https://cloud-api.phala.network',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/phala/, ''),
+      },
+    },
   },
   build: {
     outDir: 'dist',
