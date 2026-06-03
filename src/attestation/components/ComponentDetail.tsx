@@ -54,7 +54,6 @@ function InstanceCard({
   onToggleExpand,
 }: Readonly<InstanceCardProps>) {
   const [quoteCopied, setQuoteCopied] = useState(false)
-  const [quoteVisible, setQuoteVisible] = useState(false)
   const [quoteFullExpanded, setQuoteFullExpanded] = useState(false)
 
   // Auto-expand this card when verification transitions verifying → failed
@@ -137,7 +136,12 @@ function InstanceCard({
           </span>
         </div>
 
-        <StatusBadge status={status} />
+        <span
+          title={lastVerified ? `Verified ${formatAgo(lastVerified)}` : undefined}
+          style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}
+        >
+          <StatusBadge status={status} />
+        </span>
 
         {status === 'pending' && (
           <PrimaryCTA icon="verified_user" onClick={onVerify} size="sm">
@@ -181,24 +185,7 @@ function InstanceCard({
         )}
       </div>
 
-      {/* Last verified */}
-      {lastVerified && (
-        <div
-          style={{
-            padding: '0 14px 10px',
-            font: '500 11px/1 var(--ct-font-ui)',
-            color: 'var(--ct-fg-5)',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 5,
-          }}
-        >
-          <MatIcon name="schedule" size={12} color="var(--ct-fg-6)" />
-          Verified {formatAgo(lastVerified)}
-        </div>
-      )}
-
-      {/* Quote — collapsed by default, shown on demand */}
+      {/* Quote — single line */}
       <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
         <div
           style={{
@@ -206,6 +193,7 @@ function InstanceCard({
             alignItems: 'center',
             gap: 8,
             padding: '7px 14px',
+            minWidth: 0,
           }}
         >
           <MatIcon name="lock" size={13} color="var(--ct-fg-5)" />
@@ -216,6 +204,7 @@ function InstanceCard({
               textTransform: 'uppercase',
               color: 'var(--ct-fg-5)',
               whiteSpace: 'nowrap',
+              flexShrink: 0,
             }}
           >
             TDX Quote
@@ -224,8 +213,8 @@ function InstanceCard({
           {!quoteHex && quoteLoading && (
             <span
               style={{
+                flex: 1,
                 height: 7,
-                width: 80,
                 borderRadius: 4,
                 background: 'rgba(255,255,255,0.07)',
                 animation: 'badge-pulse 1.5s ease-in-out infinite',
@@ -234,11 +223,10 @@ function InstanceCard({
             />
           )}
 
-          <div style={{ flex: 1 }} />
-
           {!quoteHex && !quoteLoading && (
             <span
               style={{
+                flex: 1,
                 font: '400 11px/1 var(--ct-font-ui)',
                 color: 'var(--ct-fg-6)',
                 fontStyle: 'italic',
@@ -247,119 +235,90 @@ function InstanceCard({
               Unavailable
             </span>
           )}
+
+          {quoteHex && (
+            <span
+              title={quoteHex}
+              style={{
+                flex: 1,
+                minWidth: 0,
+                font: '500 11px/1 var(--ct-font-mono)',
+                color: 'var(--ct-fg-4)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {quoteHex}
+            </span>
+          )}
+
           {quoteHex && (
             <button
               type="button"
-              onClick={() => setQuoteVisible((v) => !v)}
-              aria-label={quoteVisible ? 'Hide TDX quote' : 'Show TDX quote'}
+              onClick={handleCopyQuote}
+              aria-label="Copy TDX quote"
+              title="Copy full quote"
               style={{
+                width: 24,
+                height: 24,
+                borderRadius: 6,
+                background: quoteCopied ? 'var(--ct-brand-tint-18)' : 'transparent',
+                border: '1px solid rgba(255,255,255,0.08)',
+                cursor: 'pointer',
+                color: quoteCopied ? 'var(--ct-brand)' : 'var(--ct-fg-5)',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: 4,
-                height: 22,
-                padding: '0 8px',
-                borderRadius: 6,
-                background: quoteVisible ? 'var(--ct-brand-tint-18)' : 'rgba(255,255,255,0.04)',
-                border: `1px solid ${quoteVisible ? 'var(--ct-brand-border)' : 'rgba(255,255,255,0.08)'}`,
-                cursor: 'pointer',
-                color: quoteVisible ? 'var(--ct-brand)' : 'var(--ct-fg-4)',
-                font: '600 11px/1 var(--ct-font-ui)',
+                justifyContent: 'center',
                 flexShrink: 0,
               }}
             >
-              <MatIcon name={quoteVisible ? 'visibility_off' : 'visibility'} size={12} />
-              {quoteVisible ? 'Hide' : 'Show'}
+              <MatIcon name={quoteCopied ? 'check' : 'content_copy'} size={12} />
+            </button>
+          )}
+
+          {quoteHex && (
+            <button
+              type="button"
+              onClick={() => setQuoteFullExpanded((v) => !v)}
+              aria-label={quoteFullExpanded ? 'Collapse full quote' : 'Expand full quote hex'}
+              title={quoteFullExpanded ? 'Collapse' : 'Expand full hex'}
+              style={{
+                width: 24,
+                height: 24,
+                borderRadius: 6,
+                background: quoteFullExpanded ? 'var(--ct-brand-tint-18)' : 'transparent',
+                border: `1px solid ${quoteFullExpanded ? 'var(--ct-brand-border)' : 'rgba(255,255,255,0.08)'}`,
+                cursor: 'pointer',
+                color: quoteFullExpanded ? 'var(--ct-brand)' : 'var(--ct-fg-5)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <MatIcon name={quoteFullExpanded ? 'expand_less' : 'expand_more'} size={12} />
             </button>
           )}
         </div>
 
-        {quoteHex && quoteVisible && (
-          <>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '6px 14px 8px',
-                borderTop: '1px solid rgba(255,255,255,0.05)',
-              }}
-            >
-              <span
-                title={quoteHex}
-                style={{
-                  font: '500 11px/1 var(--ct-font-mono)',
-                  color: 'var(--ct-fg-3)',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  flex: 1,
-                }}
-              >
-                {quoteHex}
-              </span>
-              <button
-                type="button"
-                onClick={handleCopyQuote}
-                aria-label="Copy TDX quote"
-                title="Copy full quote"
-                style={{
-                  width: 26,
-                  height: 26,
-                  borderRadius: 7,
-                  background: quoteCopied ? 'var(--ct-brand-tint-18)' : 'transparent',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  cursor: 'pointer',
-                  color: quoteCopied ? 'var(--ct-brand)' : 'var(--ct-fg-4)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                }}
-              >
-                <MatIcon name={quoteCopied ? 'check' : 'content_copy'} size={13} />
-              </button>
-              <button
-                type="button"
-                onClick={() => setQuoteFullExpanded((v) => !v)}
-                aria-label={quoteFullExpanded ? 'Collapse full quote' : 'Expand full quote hex'}
-                title={quoteFullExpanded ? 'Collapse' : 'Expand full hex'}
-                style={{
-                  width: 26,
-                  height: 26,
-                  borderRadius: 7,
-                  background: 'transparent',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  cursor: 'pointer',
-                  color: 'var(--ct-fg-4)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                }}
-              >
-                <MatIcon name={quoteFullExpanded ? 'expand_less' : 'expand_more'} size={13} />
-              </button>
-            </div>
-
-            {quoteFullExpanded && (
-              <pre
-                style={{
-                  margin: 0,
-                  padding: '10px 14px',
-                  borderTop: '1px solid rgba(255,255,255,0.06)',
-                  font: '500 11px/18px var(--ct-font-mono)',
-                  color: 'var(--ct-fg-3)',
-                  background: 'rgba(0,0,0,0.15)',
-                  wordBreak: 'break-all',
-                  whiteSpace: 'pre-wrap',
-                  maxHeight: 200,
-                  overflowY: 'auto',
-                }}
-              >
-                {quoteHex}
-              </pre>
-            )}
-          </>
+        {quoteHex && quoteFullExpanded && (
+          <pre
+            style={{
+              margin: 0,
+              padding: '10px 14px',
+              borderTop: '1px solid rgba(255,255,255,0.06)',
+              font: '500 11px/18px var(--ct-font-mono)',
+              color: 'var(--ct-fg-3)',
+              background: 'rgba(0,0,0,0.15)',
+              wordBreak: 'break-all',
+              whiteSpace: 'pre-wrap',
+              maxHeight: 200,
+              overflowY: 'auto',
+            }}
+          >
+            {quoteHex}
+          </pre>
         )}
       </div>
 
@@ -427,11 +386,8 @@ export function ComponentDetail({
   const description = getComponentDescription(cvm.name)
 
   const instanceStatuses = cvm.instances.map((i) => getInstanceStatus(i.instance_id))
-  const statusSet = new Set(instanceStatuses)
-  let overallStatus: Status = 'pending'
-  if (statusSet.has('verifying')) overallStatus = 'verifying'
-  else if (statusSet.has('failed')) overallStatus = 'failed'
-  else if (statusSet.has('verified')) overallStatus = 'verified'
+  const verifiedCount = instanceStatuses.filter((s) => s === 'verified').length
+  const totalCount = cvm.instances.length
 
   return (
     <div
@@ -481,7 +437,32 @@ export function ComponentDetail({
             >
               {cvm.name}
             </span>
-            <StatusBadge status={overallStatus} size="lg" />
+            {totalCount > 0 && (
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  height: 24,
+                  padding: '0 10px',
+                  borderRadius: 8,
+                  background:
+                    verifiedCount === totalCount
+                      ? 'var(--ct-brand-tint-18)'
+                      : 'rgba(255,255,255,0.06)',
+                  border: `1px solid ${verifiedCount === totalCount ? 'var(--ct-brand-border)' : 'rgba(255,255,255,0.1)'}`,
+                  font: '600 12px/1 var(--ct-font-ui)',
+                  color: verifiedCount === totalCount ? 'var(--ct-brand)' : 'var(--ct-fg-4)',
+                }}
+              >
+                <MatIcon
+                  name="verified"
+                  size={13}
+                  color={verifiedCount === totalCount ? 'var(--ct-brand)' : 'var(--ct-fg-5)'}
+                />
+                {verifiedCount}/{totalCount}
+              </span>
+            )}
           </div>
           <div
             style={{
