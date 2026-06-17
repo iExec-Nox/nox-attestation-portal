@@ -1,6 +1,6 @@
 import type { CvmInfo, QuoteApiResponse, AppInfoApiResponse } from '../types/index.ts'
 
-const CVMS_URL = (import.meta.env.VITE_CVMS_URL as string) ?? '/api/cvms'
+const CVMS_URL = '/api/cvms'
 
 function cvmFetch(cvmUrl: string, path: string): Promise<Response> {
   const url = new URL(`${cvmUrl}${path}`)

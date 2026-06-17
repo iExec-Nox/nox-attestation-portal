@@ -11,7 +11,7 @@ import { replayRtmr3 } from './rtmr-replay.ts'
 import { fetchQuote, fetchAppInfo } from './quote-service.ts'
 import { bytesToHex } from '../../shared/lib/utils.ts'
 
-const PHALA_VERIFY_URL = import.meta.env.VITE_PHALA_VERIFY_URL as string
+const PHALA_VERIFY_URL = (import.meta.env.VITE_PHALA_VERIFY_URL as string) ?? '/api/phala/verify'
 
 export const STEP_DEFINITIONS = [
   {
