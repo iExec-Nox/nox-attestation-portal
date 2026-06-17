@@ -1,7 +1,7 @@
 export const config = { runtime: 'edge' }
 
 export default async function handler(request: Request): Promise<Response> {
-  const cvmsUrl = process.env.CVMS_URL
+  const cvmsUrl = process.env.VITE_CVMS_URL
   if (!cvmsUrl) {
     return Response.json({ error: 'CVMS_URL not configured' }, { status: 500 })
   }
