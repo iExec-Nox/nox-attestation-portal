@@ -6,7 +6,8 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const cvmsUrl = env.CVMS_URL ? new URL(env.CVMS_URL) : null
+  const cvmsUrlRaw = env.CVMS_URL || env.VITE_CVMS_URL
+  const cvmsUrl = cvmsUrlRaw ? new URL(cvmsUrlRaw) : null
 
   return {
     plugins: [react(), tailwindcss()],
@@ -18,6 +19,9 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3000,
       open: true,
+      fs: {
+        deny: ['api'],
+      },
       proxy: {
         ...(cvmsUrl && {
           '/api/cvms': {
@@ -26,10 +30,10 @@ export default defineConfig(({ mode }) => {
             rewrite: () => cvmsUrl.pathname,
           },
         }),
-        '/api/phala/verify': {
+        '/api/phala': {
           target: 'https://cloud-api.phala.network',
           changeOrigin: true,
-          rewrite: () => '/api/v1/attestations/verify',
+          rewrite: (path) => path.replace(/^\/api\/phala/, ''),
         },
       },
     },
