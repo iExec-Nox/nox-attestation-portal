@@ -136,21 +136,29 @@ export interface ComponentRecord {
 }
 
 export function parseEventLog(raw: string | EventLogEntry[]): EventLogEntry[] {
-  return typeof raw === 'string' ? JSON.parse(raw) : raw
+  if (typeof raw !== 'string') return raw
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return []
+  }
 }
 
 export function parseRtmrs(raw: string): RtmrValues {
-  const parsed = JSON.parse(raw) as RtmrValuesRaw
-  return {
-    rtmr0: parsed['0'],
-    rtmr1: parsed['1'],
-    rtmr2: parsed['2'],
-    rtmr3: parsed['3'],
+  try {
+    const parsed = JSON.parse(raw) as RtmrValuesRaw
+    return { rtmr0: parsed['0'], rtmr1: parsed['1'], rtmr2: parsed['2'], rtmr3: parsed['3'] }
+  } catch {
+    throw new Error('Failed to parse RTMR values')
   }
 }
 
 export function parseVmConfig(raw: string): VmConfig {
-  return JSON.parse(raw)
+  try {
+    return JSON.parse(raw)
+  } catch {
+    throw new Error('Failed to parse VM config')
+  }
 }
 
 export function isValidImr(value: number): value is 0 | 1 | 2 | 3 {

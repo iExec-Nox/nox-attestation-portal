@@ -23,7 +23,12 @@ export function AttestationReport({ result }: Readonly<{ result: AttestationResu
   const composeHash = typeof rawComposeHash === 'string' ? rawComposeHash : ''
   const ok = result.status === 'verified'
 
-  const dockerComposeContent = JSON.parse(result.composeContent || '').docker_compose_file
+  let dockerComposeContent: string | undefined
+  try {
+    dockerComposeContent = JSON.parse(result.composeContent || '{}').docker_compose_file
+  } catch {
+    dockerComposeContent = result.composeContent
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

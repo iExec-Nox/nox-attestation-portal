@@ -1,8 +1,30 @@
 {
   "rewrites": [
     {
-      "source": "/api/phala/:path*",
-      "destination": "https://cloud-api.phala.network/:path*"
+      "source": "/api/cvms",
+      "destination": "$CVMS_URL"
+    },
+    {
+      "source": "/api/phala/verify",
+      "destination": "https://cloud-api.phala.network/api/v1/attestations/verify"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=63072000; includeSubDomains; preload"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:"
+        }
+      ]
     }
   ]
 }
