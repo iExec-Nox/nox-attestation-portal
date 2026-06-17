@@ -1,9 +1,11 @@
 import type { CvmInfo, QuoteApiResponse, AppInfoApiResponse } from '../types/index.ts'
 
-const CVMS_URL = (import.meta.env.VITE_CVMS_URL as string) ?? '/api/cvms'
+const CVMS_URL = '/api/cvms'
 
 function cvmFetch(cvmUrl: string, path: string): Promise<Response> {
-  return fetch(`${cvmUrl}${path}`)
+  const url = new URL(`${cvmUrl}${path}`)
+  if (url.protocol !== 'https:') throw new Error(`Insecure CVM URL rejected: ${url.protocol}`)
+  return fetch(url.toString())
 }
 
 export async function fetchCvms(): Promise<CvmInfo[]> {

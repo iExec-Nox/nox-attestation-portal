@@ -19,11 +19,17 @@ function ComposeManifest({
 }
 
 export function AttestationReport({ result }: Readonly<{ result: AttestationResult }>) {
-  const rawComposeHash = result.steps[5]?.data?.observed
+  const rawComposeHash = result.steps[5]?.data?.expected
   const composeHash = typeof rawComposeHash === 'string' ? rawComposeHash : ''
   const ok = result.status === 'verified'
 
-  const dockerComposeContent = JSON.parse(result.composeContent || '').docker_compose_file
+  let dockerComposeContent: string
+  try {
+    dockerComposeContent =
+      JSON.parse(result.composeContent || '{}').docker_compose_file ?? result.composeContent ?? ''
+  } catch {
+    dockerComposeContent = result.composeContent ?? ''
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
