@@ -1,5 +1,61 @@
 # Changelog
 
+## [1.1.0-beta.1](https://github.com/iExec-Nox/nox-attestation-portal/compare/v1.1.0-beta...v1.1.0-beta.1) (2026-06-17)
+
+
+### 🚀 Added
+
+* **attestation:** multi-instance cvm portal with security and ux har… ([5f9fad3](https://github.com/iExec-Nox/nox-attestation-portal/commit/5f9fad37e8b76883f164f861944a54ad854a362d))
+* **attestation:** multi-instance cvm portal with security and ux hardening ([a401805](https://github.com/iExec-Nox/nox-attestation-portal/commit/a401805b2520534734081f7ea745da0351686cc3))
+* **attestation:** quote prefetch, ux polish, and proxy fixes ([c24caf3](https://github.com/iExec-Nox/nox-attestation-portal/commit/c24caf3e25289b4d36f44b4a092790dba6396a4b))
+* **attestation:** quote prefetch, ux polish, and proxy fixes ([69a3eee](https://github.com/iExec-Nox/nox-attestation-portal/commit/69a3eeeb383cede72c8c2bad2126f087a4b7158d))
+* implement tdx attestation verification portal ([0b8bf3d](https://github.com/iExec-Nox/nox-attestation-portal/commit/0b8bf3d1c7900f165f6e810f3019876d9350d1a6))
+* implement tdx attestation verification portal ([e3d3ed4](https://github.com/iExec-Nox/nox-attestation-portal/commit/e3d3ed48c14720a3f32a595c4052a5fc705bc411))
+* remove server-side proxy, call cvm and external apis directly ([06d3e30](https://github.com/iExec-Nox/nox-attestation-portal/commit/06d3e305454aca9ae5cc48237fb38fc95a55eae5))
+* remove server-side proxy, call cvm and external apis directly ([b279299](https://github.com/iExec-Nox/nox-attestation-portal/commit/b279299bc4376cfa1de3007b370e2e9b8d93386f))
+* **ui:** improve instance verification ux across components ([3adb0c7](https://github.com/iExec-Nox/nox-attestation-portal/commit/3adb0c764a376dcc67e9c23dc19709b40ae8b784))
+* **ui:** improve instance verification ux across components ([cb10662](https://github.com/iExec-Nox/nox-attestation-portal/commit/cb10662cacf3391f28b32419f2274fce64e1d09f))
+* **ui:** show instance_id and machine_id on one line in instance card ([7cdeda3](https://github.com/iExec-Nox/nox-attestation-portal/commit/7cdeda3a51567bfa80f2dc45e270d9df93f7702b))
+* **ui:** show instance_id and machine_id on one line in instance card ([425fe37](https://github.com/iExec-Nox/nox-attestation-portal/commit/425fe37407d38ec61e7c05dc59ebee918dc3ca63))
+* **ux:** dashboard empty state, verify all buttons and smart re-verify ([d06c851](https://github.com/iExec-Nox/nox-attestation-portal/commit/d06c851157c28d6a571a7cf9792c3ef690d77d76))
+* **ux:** dashboard empty state, verify all buttons and smart re-verify ([992af15](https://github.com/iExec-Nox/nox-attestation-portal/commit/992af158bfbcfb2c099a8b5a7749403b720d9b22))
+
+
+### ✍️ Changed
+
+* **api:** use vite cvm url env var in cvms proxy handler ([f0e43bd](https://github.com/iExec-Nox/nox-attestation-portal/commit/f0e43bdadfb2a3b6d7e4284a854b5962b7eb8ad1))
+* **attestation:** harden error handling and fix status priority ([47c131b](https://github.com/iExec-Nox/nox-attestation-portal/commit/47c131b4e1f7737f8c86cb1f5b22300aaa135ed7))
+* **csp:** allow google fonts in content security policy ([a38817b](https://github.com/iExec-Nox/nox-attestation-portal/commit/a38817bf13164bc5026860321f4d12501009b1d5))
+* **dev:** block api/ dir from vite static serving, add cvms proxy fallback ([bdeee14](https://github.com/iExec-Nox/nox-attestation-portal/commit/bdeee1439f299af3ec5d4c581504450cec963713))
+* proxy phala verify through server to bypass cors header restriction ([4973e7a](https://github.com/iExec-Nox/nox-attestation-portal/commit/4973e7ab77239844906152fce3fc1840d009e923))
+* proxy phala verify through server to bypass cors header restriction ([70bdc21](https://github.com/iExec-Nox/nox-attestation-portal/commit/70bdc21bb73fd0f83609920ef69dcb7c9fc5b5fa))
+* route cvm requests through vercel proxy to avoid cors ([3774e71](https://github.com/iExec-Nox/nox-attestation-portal/commit/3774e71c96eaf7843cdffdbb519e58076aeed518))
+* route cvm requests through vercel proxy to avoid cors ([6af4109](https://github.com/iExec-Nox/nox-attestation-portal/commit/6af4109b11b184b81006f89fde88db4ff2d453dd))
+* security review ([94addce](https://github.com/iExec-Nox/nox-attestation-portal/commit/94addce92b0084768779d20002984bd246538daf))
+* **security:** fix critical regressions found in senior review ([f587ded](https://github.com/iExec-Nox/nox-attestation-portal/commit/f587ded4e410770d13eb0f7b7b2bfb0f541d2a91))
+* **security:** fix security review ([72cb097](https://github.com/iExec-Nox/nox-attestation-portal/commit/72cb0976baaab827cac0cdb8d7ef1681b450f20d))
+* **vercel:** add explicit build config and spa fallback to enable api functions ([15a448b](https://github.com/iExec-Nox/nox-attestation-portal/commit/15a448bbf627adf9fa1ab3dfcb2c62a4e4bc448f))
+
+
+### 📋 Misc
+
+* add .nvmrc and update lockfile from merge ([52861ea](https://github.com/iExec-Nox/nox-attestation-portal/commit/52861ea4138b9e986fd7cd15767cc97c1ea803e3))
+* add github actions workflow and checks ([2a20fa4](https://github.com/iExec-Nox/nox-attestation-portal/commit/2a20fa49e5cfabacfd9832213861e3d39f801059))
+* add release-please configuration ([c40ec48](https://github.com/iExec-Nox/nox-attestation-portal/commit/c40ec48658c1a157bd21388e28747b8928af5449))
+* add release-please configuration ([9448799](https://github.com/iExec-Nox/nox-attestation-portal/commit/9448799d295d9e90bdd6c74941faa736d2305db3))
+* **App:** fix stale assertion and mock fetch for jsdom ([2babe78](https://github.com/iExec-Nox/nox-attestation-portal/commit/2babe783287892550e4a189e70ff3ac71ac7b711))
+* configure husky and commitlint ([b74a444](https://github.com/iExec-Nox/nox-attestation-portal/commit/b74a4448545b49880fb9a2b35713c6f995a092f0))
+* configure vitest ([a739d0b](https://github.com/iExec-Nox/nox-attestation-portal/commit/a739d0b49cb3f28f743650ca3cf7eafbe041f3f3))
+* ignore .env files ([b7fd58e](https://github.com/iExec-Nox/nox-attestation-portal/commit/b7fd58e309a4a66ac160a5ffa1f6559a67f78b59))
+* ignore .env files ([411a790](https://github.com/iExec-Nox/nox-attestation-portal/commit/411a790c474e64838c644d7ee06710e9755b517b))
+* initial setup ([cf9abc4](https://github.com/iExec-Nox/nox-attestation-portal/commit/cf9abc4426721d9db6437316a7cdbc37abeed0ed))
+* **main:** release 1.0.0 ([961d126](https://github.com/iExec-Nox/nox-attestation-portal/commit/961d1262926fc7ab3d625863a90d8de7f60daad7))
+* **main:** release 1.0.0 ([e3aefc4](https://github.com/iExec-Nox/nox-attestation-portal/commit/e3aefc456735bf2d7da1ce946f1a7fffe16dd630))
+* **main:** release 1.1.0-beta ([bf46c12](https://github.com/iExec-Nox/nox-attestation-portal/commit/bf46c12ebf61f5870060fac0681cd107acd6fc6a))
+* **main:** release 1.1.0-beta ([67bc5f1](https://github.com/iExec-Nox/nox-attestation-portal/commit/67bc5f18c18f87f4018f6a8491260b46f0812020))
+* update favicon with iexec logo ([2750bb6](https://github.com/iExec-Nox/nox-attestation-portal/commit/2750bb6d42f8e6cee727664400a1542749074704))
+* update favicon with iexec logo ([db4f076](https://github.com/iExec-Nox/nox-attestation-portal/commit/db4f0764cd565be1bd63eaf168ca274abdde3582))
+
 ## [1.1.0-beta](https://github.com/iExec-Nox/nox-attestation-portal/compare/v1.0.0...v1.1.0-beta) (2026-06-03)
 
 
