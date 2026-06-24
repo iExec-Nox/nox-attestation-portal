@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { MatIcon, Verdict } from '../../shared/ui/index.tsx'
+import { type AuditLink, AuditLinkPill } from './SourceAuditability.tsx'
 
 interface CodePreviewContainerProps {
   title: string
@@ -8,6 +9,7 @@ interface CodePreviewContainerProps {
   hash?: string
   verdictOk?: boolean
   defaultCollapsed?: boolean
+  auditLinks?: AuditLink[]
 }
 
 /* ── YAML tokenizer ── */
@@ -122,6 +124,7 @@ export function CodePreviewContainer({
   hash,
   verdictOk,
   defaultCollapsed = false,
+  auditLinks,
 }: Readonly<CodePreviewContainerProps>) {
   const [copied, setCopied] = useState(false)
   const [collapsed, setCollapsed] = useState(defaultCollapsed)
@@ -208,15 +211,22 @@ export function CodePreviewContainer({
               padding: '8px 16px',
               borderBottom: '1px solid rgba(255,255,255,0.05)',
               background: 'rgba(255,255,255,0.01)',
+              flexWrap: 'wrap',
             }}
           >
             <MatIcon name="description" size={14} color="var(--ct-fg-5)" />
-            <span
-              style={{ font: '500 12px/1 var(--ct-font-mono)', color: 'var(--ct-fg-4)', flex: 1 }}
-            >
+            <span style={{ font: '500 12px/1 var(--ct-font-mono)', color: 'var(--ct-fg-4)' }}>
               {filename}
-              <span style={{ color: 'var(--ct-fg-6)', marginLeft: 6 }}>· read-only</span>
             </span>
+            {auditLinks && auditLinks.length > 0 && (
+              <>
+                <span style={{ color: 'rgba(255,255,255,0.15)', fontSize: 12 }}>·</span>
+                {auditLinks.map((link) => (
+                  <AuditLinkPill key={link.label} {...link} />
+                ))}
+              </>
+            )}
+            <div style={{ flex: 1 }} />
             <button
               type="button"
               onClick={handleCopy}
@@ -224,7 +234,7 @@ export function CodePreviewContainer({
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 5,
-                height: 28,
+                height: 26,
                 padding: '0 10px',
                 borderRadius: 8,
                 background: 'transparent',

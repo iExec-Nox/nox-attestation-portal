@@ -29,6 +29,7 @@ interface ComponentDetailProps {
 
 interface InstanceCardProps {
   instance: InstanceInfo
+  componentName: string
   isExpanded: boolean
   hasExpandable: boolean
   status: Status
@@ -43,6 +44,7 @@ interface InstanceCardProps {
 
 function InstanceCard({
   instance,
+  componentName,
   isExpanded,
   hasExpandable,
   status,
@@ -335,7 +337,9 @@ function InstanceCard({
           }}
         >
           {hasActiveSteps && instanceSteps && <StepList steps={instanceSteps} />}
-          {instanceResult && <AttestationReport result={instanceResult} />}
+          {instanceResult && (
+            <AttestationReport result={instanceResult} componentName={componentName} />
+          )}
         </div>
       )}
     </div>
@@ -532,6 +536,7 @@ export function ComponentDetail({
               <InstanceCard
                 key={instance.instance_id}
                 instance={instance}
+                componentName={cvm.name}
                 isExpanded={isExpanded}
                 hasExpandable={hasExpandable}
                 status={getInstanceStatus(instance.instance_id)}
