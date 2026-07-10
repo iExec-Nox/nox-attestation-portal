@@ -2,14 +2,11 @@ import { getCollateralAndVerify, PHALA_PCCS_URL, Quote } from '@phala/dcap-qvl'
 import type { TdxQuoteBody } from '../types/index.ts'
 
 export interface DcapVerifyResult {
-  success: boolean
   verified: boolean
   tcb_status?: string
   advisory_ids?: string[]
   quote?: {
     body?: TdxQuoteBody
-    fmspc?: string
-    tcb_level?: string
   }
 }
 
@@ -29,9 +26,16 @@ export async function verifyQuoteWithDcap(quoteHex: string): Promise<DcapVerifyR
     const result = await getCollateralAndVerify(quoteBuffer, PHALA_PCCS_URL)
     const quoteData = extractQuoteData(quoteBuffer)
 
+    const acceptedStatuses = [
+      'UpToDate',
+      'SWHardeningNeeded',
+      'ConfigurationNeeded',
+      'ConfigurationAndSWHardeningNeeded',
+    ]
+    const verified = acceptedStatuses.includes(result.status)
+
     return {
-      success: true,
-      verified: result.status === 'UpToDate',
+      verified,
       tcb_status: result.status,
       advisory_ids: result.advisory_ids,
       quote: quoteData,
