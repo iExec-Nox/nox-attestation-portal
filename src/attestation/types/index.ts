@@ -47,39 +47,6 @@ export interface TdxQuoteBody {
   xfam: string
 }
 
-export interface TdxQuoteHeader {
-  version: number
-  ak_type: string
-  tee_type: 'TEE_TDX' | string
-  qe_vendor: string
-  user_data: string
-}
-
-export interface PhalaVerifyResponse {
-  id: string
-  success: boolean
-  verified: boolean
-  proof_of_cloud: boolean
-  checksum?: string
-  quote?: {
-    ak_type: string
-    tee_type: 'TEE_TDX' | string
-    qe_vendor: string
-    body?: TdxQuoteBody
-    header?: TdxQuoteHeader
-    cert_data?: string
-    fmspc?: string
-    tcb_level?: string
-    sig_type?: string
-    sig_version?: number
-  }
-  node_provider?: {
-    proof_of_cloud: boolean
-    provider: string
-    ppid: string
-  }
-}
-
 export interface RtmrValues {
   rtmr0: string
   rtmr1: string

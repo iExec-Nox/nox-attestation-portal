@@ -3,10 +3,6 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
-      "source": "/api/phala/verify",
-      "destination": "https://cloud-api.phala.network/api/v1/attestations/verify"
-    },
-    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }

@@ -33,11 +33,6 @@ export default defineConfig(({ mode }) => {
             rewrite: () => cvmsUrl.pathname,
           },
         }),
-        '/api/phala': {
-          target: 'https://cloud-api.phala.network',
-          changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api\/phala/, '/api/v1/attestations'),
-        },
         ...(pocUrl && {
           '/api/proof-of-cloud': {
             target: pocUrl.origin,
