@@ -33,7 +33,7 @@ export default defineConfig(({ mode }) => {
         '/api/phala': {
           target: 'https://cloud-api.phala.network',
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api\/phala/, ''),
+          rewrite: (path) => path.replace(/^\/api\/phala/, '/api/v1/attestations'),
         },
       },
     },
