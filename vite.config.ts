@@ -9,6 +9,9 @@ export default defineConfig(({ mode }) => {
   const cvmsUrlRaw = env.CVMS_URL || env.VITE_CVMS_URL
   const cvmsUrl = cvmsUrlRaw ? new URL(cvmsUrlRaw) : null
 
+  const pocUrlRaw = env.PROOF_OF_CLOUD_URL || env.VITE_PROOF_OF_CLOUD_URL
+  const pocUrl = pocUrlRaw ? new URL(pocUrlRaw) : null
+
   return {
     plugins: [react(), tailwindcss()],
     resolve: {
@@ -35,6 +38,13 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api\/phala/, '/api/v1/attestations'),
         },
+        ...(pocUrl && {
+          '/api/proof-of-cloud': {
+            target: pocUrl.origin,
+            changeOrigin: true,
+            rewrite: () => pocUrl.pathname,
+          },
+        }),
       },
     },
     build: {

@@ -120,6 +120,7 @@ export class AttestationVerifier {
     }
 
     const tcbStatus = dcapResult.tcb_status
+    const proofOfCloud = dcapResult.proof_of_cloud
 
     const step1Data: Record<string, string> = {
       verifier: 'dcap-qvl (local)',
@@ -129,6 +130,7 @@ export class AttestationVerifier {
     if (tcbStatus) step1Data['tcb status'] = tcbStatus
     if (dcapResult.advisory_ids?.length)
       step1Data['advisory ids'] = dcapResult.advisory_ids.join(', ')
+    step1Data['proof of cloud'] = String(proofOfCloud)
 
     push(0, {
       status: 'verified',

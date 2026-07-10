@@ -3,6 +3,7 @@ import type { TdxQuoteBody } from '../types/index.ts'
 
 export interface DcapVerifyResult {
   verified: boolean
+  proof_of_cloud: boolean
   tcb_status?: string
   advisory_ids?: string[]
   quote?: {
@@ -34,8 +35,24 @@ export async function verifyQuoteWithDcap(quoteHex: string): Promise<DcapVerifyR
     ]
     const verified = acceptedStatuses.includes(result.status)
 
+    let proofOfCloud = false
+    try {
+      const pocResponse = await fetch('/api/proof-of-cloud', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quote: quoteHex }),
+      })
+      if (pocResponse.ok) {
+        const pocData = await pocResponse.json()
+        proofOfCloud = pocData.whitelisted === true
+      }
+    } catch {
+      // Proof of Cloud check is optional, don't fail if unavailable
+    }
+
     return {
       verified,
+      proof_of_cloud: proofOfCloud,
       tcb_status: result.status,
       advisory_ids: result.advisory_ids,
       quote: quoteData,
