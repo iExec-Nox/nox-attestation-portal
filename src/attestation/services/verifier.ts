@@ -2,16 +2,14 @@ import type {
   StepResult,
   AttestationResult,
   RtmrValues,
-  PhalaVerifyResponse,
   EventLogEntry,
   QuoteApiResponse,
 } from '../types/index.ts'
 import { parseEventLog } from '../types/index.ts'
 import { replayRtmr3 } from './rtmr-replay.ts'
 import { fetchQuote, fetchAppInfo } from './quote-service.ts'
+import { verifyQuoteWithDcap, type DcapVerifyResult } from './dcap-verifier.ts'
 import { bytesToHex } from '../../shared/lib/utils.ts'
-
-const PHALA_VERIFY_URL = (import.meta.env.VITE_PHALA_VERIFY_URL as string) ?? '/api/phala/verify'
 
 export const STEP_DEFINITIONS = [
   {
@@ -97,55 +95,49 @@ export class AttestationVerifier {
     // ── Step 1: Verify Quote Signature ────────────────────────────────────
     push(0, { status: 'verifying' })
 
-    let phalaResp: PhalaVerifyResponse
+    let dcapResult: DcapVerifyResult
     try {
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 15000)
-      const res = await fetch(PHALA_VERIFY_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ hex: quoteData.quote }),
-        signal: controller.signal,
-      })
-      clearTimeout(timeoutId)
-
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}: ${res.statusText}`)
-      }
-
-      phalaResp = (await res.json()) as PhalaVerifyResponse
+      const timeoutId = setTimeout(() => controller.abort(), 30000)
+      dcapResult = (await Promise.race([
+        verifyQuoteWithDcap(quoteData.quote),
+        new Promise((_, reject) =>
+          controller.signal.addEventListener('abort', () => reject(new Error('Timeout'))),
+        ),
+      ]).finally(() => clearTimeout(timeoutId))) as DcapVerifyResult
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err)
-      push(0, { status: 'failed', error: `Phala API error: ${errorMsg}` })
+      push(0, { status: 'failed', error: `Quote signature verification error: ${errorMsg}` })
       return { status: 'failed', steps, failedStep: 1, errorMessage: errorMsg }
     }
 
-    if (!phalaResp.success) {
-      push(0, { status: 'failed', error: 'Quote signature rejected by Phala Cloud' })
+    if (!dcapResult.verified) {
+      push(0, {
+        status: 'failed',
+        error: `Quote signature not verified. TCB Status: ${dcapResult.tcb_status || 'Unknown'}`,
+      })
       return { status: 'failed', steps, failedStep: 1, errorMessage: 'Quote not verified' }
     }
 
-    const proofOfCloud = phalaResp.proof_of_cloud
-    const fmspc = phalaResp.quote?.fmspc
-    const tcbLevel = phalaResp.quote?.tcb_level
+    const tcbStatus = dcapResult.tcb_status
 
     const step1Data: Record<string, string> = {
-      verifier: 'Phala Cloud',
+      verifier: 'dcap-qvl (local)',
       'enclave type': 'Intel TDX (Trust Domain Extensions)',
-      'proof of cloud': String(proofOfCloud),
     }
 
-    if (fmspc) step1Data.fmspc = fmspc
-    if (tcbLevel) step1Data.tcbLevel = tcbLevel
+    if (tcbStatus) step1Data['tcb status'] = tcbStatus
+    if (dcapResult.advisory_ids?.length)
+      step1Data['advisory ids'] = dcapResult.advisory_ids.join(', ')
 
     push(0, {
       status: 'verified',
       data: step1Data,
     })
 
-    const quoteBody = phalaResp.quote?.body
+    const quoteBody = dcapResult.quote?.body
     if (!quoteBody) {
-      push(1, { status: 'failed', error: 'Phala response missing quote body' })
+      push(1, { status: 'failed', error: 'DCAP result missing quote body' })
       return { status: 'failed', steps, failedStep: 2, errorMessage: 'Missing quote body' }
     }
 
