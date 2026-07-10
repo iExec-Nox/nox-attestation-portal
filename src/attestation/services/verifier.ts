@@ -9,6 +9,7 @@ import { parseEventLog } from '../types/index.ts'
 import { replayRtmr3 } from './rtmr-replay.ts'
 import { fetchQuote, fetchAppInfo } from './quote-service.ts'
 import { verifyQuoteWithDcap, type DcapVerifyResult } from './dcap-verifier.ts'
+import { checkProofOfCloud } from './proof-of-cloud.ts'
 import { bytesToHex } from '../../shared/lib/utils.ts'
 
 export const STEP_DEFINITIONS = [
@@ -95,16 +96,24 @@ export class AttestationVerifier {
     // ── Step 1: Verify Quote Signature ────────────────────────────────────
     push(0, { status: 'verifying' })
 
+    // DCAP verification and the proof-of-cloud check both depend only on the
+    // quote, so run them in parallel. Proof-of-cloud is non-blocking and never
+    // throws, so only a DCAP failure aborts step 1.
     let dcapResult: DcapVerifyResult
+    let proofOfCloud: boolean
     try {
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 30000)
-      dcapResult = (await Promise.race([
+      const dcapPromise = Promise.race([
         verifyQuoteWithDcap(quoteData.quote),
         new Promise((_, reject) =>
           controller.signal.addEventListener('abort', () => reject(new Error('Timeout'))),
         ),
-      ]).finally(() => clearTimeout(timeoutId))) as DcapVerifyResult
+      ]) as Promise<DcapVerifyResult>
+      ;[dcapResult, proofOfCloud] = await Promise.all([
+        dcapPromise,
+        checkProofOfCloud(quoteData.quote),
+      ]).finally(() => clearTimeout(timeoutId))
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err)
       push(0, { status: 'failed', error: `Quote signature verification error: ${errorMsg}` })
@@ -120,7 +129,6 @@ export class AttestationVerifier {
     }
 
     const tcbStatus = dcapResult.tcb_status
-    const proofOfCloud = dcapResult.proof_of_cloud
 
     const step1Data: Record<string, string> = {
       verifier: 'dcap-qvl (local)',
