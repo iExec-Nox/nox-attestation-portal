@@ -64,6 +64,14 @@ async function sha256(data: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBu
   return new Uint8Array(await crypto.subtle.digest('SHA-256', data))
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number, message = 'Timeout'): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout>
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(message)), ms)
+  })
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timeoutId))
+}
+
 export class AttestationVerifier {
   private readonly onUpdate: StepCallback
 
@@ -102,18 +110,10 @@ export class AttestationVerifier {
     let dcapResult: DcapVerifyResult
     let proofOfCloud: boolean
     try {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 30000)
-      const dcapPromise = Promise.race([
-        verifyQuoteWithDcap(quoteData.quote),
-        new Promise((_, reject) =>
-          controller.signal.addEventListener('abort', () => reject(new Error('Timeout'))),
-        ),
-      ]) as Promise<DcapVerifyResult>
       ;[dcapResult, proofOfCloud] = await Promise.all([
-        dcapPromise,
+        withTimeout(verifyQuoteWithDcap(quoteData.quote), 30000),
         checkProofOfCloud(quoteData.quote),
-      ]).finally(() => clearTimeout(timeoutId))
+      ])
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err)
       push(0, { status: 'failed', error: `Quote signature verification error: ${errorMsg}` })

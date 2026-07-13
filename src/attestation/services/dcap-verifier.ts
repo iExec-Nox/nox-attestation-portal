@@ -47,6 +47,9 @@ export async function verifyQuoteWithDcap(quoteHex: string): Promise<DcapVerifyR
 
 function hexToBytes(quoteHex: string): Uint8Array {
   const cleanHex = quoteHex.replace(/^0x/i, '')
+  if (cleanHex.length === 0 || cleanHex.length % 2 !== 0 || !/^[0-9a-f]+$/i.test(cleanHex)) {
+    throw new Error(`Invalid quote hex string (length ${cleanHex.length})`)
+  }
   const quoteBuffer = new Uint8Array(cleanHex.length / 2)
   for (let i = 0; i < cleanHex.length; i += 2) {
     quoteBuffer[i / 2] = parseInt(cleanHex.substring(i, i + 2), 16)
