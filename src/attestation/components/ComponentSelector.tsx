@@ -13,6 +13,7 @@ import {
 } from '../../shared/ui/index.tsx'
 
 interface ComponentsListProps {
+  challenge: string
   selected: CvmInfo | null
   onSelect: (cvm: CvmInfo) => void
   onCvmsLoaded: (cvms: CvmInfo[]) => void
@@ -258,6 +259,7 @@ function friendlyError(raw: string): string {
 }
 
 export function ComponentSelector({
+  challenge,
   selected,
   onSelect,
   onCvmsLoaded,
@@ -274,14 +276,14 @@ export function ComponentSelector({
   const [retryKey, setRetryKey] = useState(0)
 
   useEffect(() => {
-    fetchCvms()
+    fetchCvms(challenge)
       .then((data) => {
         setCvms(data)
         onCvmsLoaded(data)
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false))
-  }, [onCvmsLoaded, retryKey])
+  }, [challenge, onCvmsLoaded, retryKey])
 
   const noPendingInstances =
     !loading &&
