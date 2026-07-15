@@ -3,11 +3,10 @@ import type {
   AttestationResult,
   RtmrValues,
   EventLogEntry,
-  QuoteApiResponse,
+  InstanceInfo,
 } from '../types/index.ts'
 import { parseEventLog } from '../types/index.ts'
 import { replayRtmr3 } from './rtmr-replay.ts'
-import { fetchQuote, fetchAppInfo } from './quote-service.ts'
 import { verifyQuoteWithDcap, type DcapVerifyResult } from './dcap-verifier.ts'
 import { checkProofOfCloud } from './proof-of-cloud.ts'
 import { bytesToHex } from '../../shared/lib/utils.ts'
@@ -40,11 +39,6 @@ export const STEP_DEFINITIONS = [
   },
 ] as const
 
-export interface PrefetchedQuote {
-  quoteData: QuoteApiResponse
-  challenge: string
-}
-
 export type StepCallback = (steps: StepResult[]) => void
 
 function makeInitialSteps(): StepResult[] {
@@ -54,10 +48,6 @@ function makeInitialSteps(): StepResult[] {
     description: s.description,
     status: 'pending' as const,
   }))
-}
-
-function generateChallenge(): string {
-  return bytesToHex(crypto.getRandomValues(new Uint8Array(32)))
 }
 
 async function sha256(data: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
@@ -79,27 +69,17 @@ export class AttestationVerifier {
     this.onUpdate = onUpdate
   }
 
-  async verify(cvmUrl: string, prefetched?: PrefetchedQuote): Promise<AttestationResult> {
+  async verify(instance: InstanceInfo, challenge: string): Promise<AttestationResult> {
     const steps = makeInitialSteps()
     const push = (i: number, patch: Partial<StepResult>) => {
       steps[i] = { ...steps[i], ...patch }
       this.onUpdate([...steps])
     }
 
-    const challenge = prefetched?.challenge ?? generateChallenge()
-
-    let quoteData: Awaited<ReturnType<typeof fetchQuote>>
-    let appInfo: Awaited<ReturnType<typeof fetchAppInfo>>
-
-    try {
-      ;[quoteData, appInfo] = await Promise.all([
-        prefetched ? Promise.resolve(prefetched.quoteData) : fetchQuote(cvmUrl, challenge),
-        fetchAppInfo(cvmUrl),
-      ])
-    } catch (err) {
-      push(0, { status: 'failed', error: `Data fetch error: ${String(err)}` })
-      return { status: 'failed', steps, failedStep: 1, errorMessage: String(err) }
-    }
+    // The quote (bound to `challenge`) and the compose manifest are provided by
+    // the aggregator, so verification is fully local — no network fetch here.
+    const quoteData = instance.quote
+    const appCompose = instance.app_compose
 
     // ── Step 1: Verify Quote Signature ────────────────────────────────────
     push(0, { status: 'verifying' })
@@ -252,12 +232,11 @@ export class AttestationVerifier {
       return { status: 'failed', steps, failedStep: 6, errorMessage: 'Missing compose-hash' }
     }
 
-    const composeContent = appInfo.app_compose ?? ''
+    const composeContent = appCompose ?? ''
     if (!composeContent.trim()) {
       push(5, {
         status: 'failed',
-        error: 'App manifest missing from CVM info response',
-        data: { appInfoKeys: Object.keys(appInfo) },
+        error: 'App manifest missing from aggregator response',
       })
       return {
         status: 'failed',
@@ -291,7 +270,7 @@ export class AttestationVerifier {
       status: 'verified',
       steps,
       rtmrValues,
-      composeContent: appInfo.app_compose,
+      composeContent: appCompose,
       challenge,
       quoteHex: quoteData.quote,
     }
