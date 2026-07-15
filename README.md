@@ -1,13 +1,10 @@
 # NOX Attestation Explorer
 
-A web interface for verifying the integrity of [NOX Protocol](https://docs.noxprotocol.io/getting-started/welcome) components running inside Intel TDX Confidential VMs (CVMs). It fetches TDX quotes from live CVM instances, replays the RTMR measurement chain, and presents a step-by-step attestation report.
+A web interface for verifying the integrity of [NOX Protocol](https://docs.noxprotocol.io/getting-started/welcome) components running inside Intel TDX Confidential VMs (CVMs). It obtains TDX quotes from the aggregator, replays the RTMR measurement chain, and presents a step-by-step attestation report.
 
 ## What it does
 
-Each NOX component (CVM) exposes a `/quote` endpoint. The explorer:
-
-1. Prefetches quotes from all known instances on load
-2. Verifies each quote through a 6-step pipeline:
+The explorer generates a random challenge (freshness nonce) on load and fetches the CVM list from the aggregator (`/api/cvms?challenge=…`). The aggregator relays that challenge to each CVM and returns, for every instance, its TDX quote (bound to the challenge) and its compose manifest — so the browser never contacts the CVMs directly. The explorer then verifies each quote through a 6-step pipeline:
 
 | Step | Name                    | What is checked                                            |
 | ---- | ----------------------- | ---------------------------------------------------------- |
@@ -31,7 +28,7 @@ A CVM is considered **verified** only when all 6 steps pass.
 
 ```bash
 npm install
-npm run dev        # http://localhost:5173
+npm run dev        # http://localhost:3000
 ```
 
 ### Other scripts
@@ -50,9 +47,12 @@ npm run test:coverage  # Vitest with V8 coverage
 
 ## Environment
 
-The app expects a `/api/cvm` proxy endpoint that returns the list of CVM instances.
-In development, Vite's proxy config forwards requests to the NOX backend.
-In production (Vercel), `vercel.json` rewrites handle the proxy to avoid CORS.
+The app expects a `/api/cvms` proxy endpoint that returns the list of CVM instances,
+each with its quote and compose manifest embedded (served by the aggregator).
+In development, Vite's proxy (`vite.config.ts`, driven by `CVMS_URL`) forwards requests
+to the aggregator. The proxy **must preserve the query string**, since the `challenge`
+is passed as `/api/cvms?challenge=…`; the same requirement applies to whatever proxy
+fronts `/api/cvms` in production.
 
 ## Project structure
 
