@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAttestation } from '../hooks/useAttestation.ts'
 import { AttestationVerifier } from '../services/verifier.ts'
 import { bytesToHex } from '../../shared/lib/utils.ts'
@@ -121,15 +121,26 @@ export function AttestationPortal() {
     [history],
   )
 
+  // Index instances by id once per `cvms` change, so per-card lookups below are
+  // O(1) instead of re-scanning (and re-allocating) the whole list every render.
+  const instancesById = useMemo(() => {
+    const map = new Map<string, InstanceInfo>()
+    for (const cvm of cvms) {
+      for (const instance of cvm.instances) {
+        map.set(instance.instance_id, instance)
+      }
+    }
+    return map
+  }, [cvms])
+
   const getInstanceQuote = useCallback(
     (instanceId: string): string | undefined => {
       if (selectedInstance?.instance_id === instanceId && result?.quoteHex) {
         return result.quoteHex
       }
-      const instance = cvms.flatMap((c) => c.instances).find((i) => i.instance_id === instanceId)
-      return instance?.quote.quote
+      return instancesById.get(instanceId)?.quote.quote
     },
-    [selectedInstance, result, cvms],
+    [selectedInstance, result, instancesById],
   )
 
   // Quotes arrive with the CVM list, so there is no separate quote-loading state.
