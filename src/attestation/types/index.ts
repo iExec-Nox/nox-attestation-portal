@@ -1,7 +1,10 @@
 export interface InstanceInfo {
   instance_id: string
-  url: string
   machine_id: string
+  /** Attestation quote fetched by the aggregator, bound to our challenge. */
+  quote: QuoteData
+  /** Docker-compose manifest, provided by the aggregator (from the CVM `/info`). */
+  app_compose: string
 }
 
 export interface CvmInfo {
@@ -18,15 +21,9 @@ export interface EventLogEntry {
   digest: string
 }
 
-export interface QuoteApiResponse {
+export interface QuoteData {
   quote: string
   event_log: string | EventLogEntry[]
-  rtmrs?: string
-  vm_config?: string
-}
-
-export interface AppInfoApiResponse {
-  app_compose?: string
 }
 
 export interface TdxQuoteBody {

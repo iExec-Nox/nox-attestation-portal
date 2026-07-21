@@ -7,7 +7,8 @@ export default async function handler(request: Request): Promise<Response> {
   }
 
   try {
-    const upstream = await fetch(cvmsUrl, { signal: request.signal })
+    const { search } = new URL(request.url)
+    const upstream = await fetch(`${cvmsUrl}${search}`, { signal: request.signal })
     const data = await upstream.arrayBuffer()
     return new Response(data, {
       status: upstream.status,

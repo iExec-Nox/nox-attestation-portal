@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAttestation } from '../hooks/useAttestation.ts'
-import { AttestationVerifier, type PrefetchedQuote } from '../services/verifier.ts'
-import { fetchQuote } from '../services/quote-service.ts'
+import { AttestationVerifier } from '../services/verifier.ts'
 import { bytesToHex } from '../../shared/lib/utils.ts'
 import { ComponentSelector } from './ComponentSelector.tsx'
 import { ComponentView } from './ComponentView.tsx'
@@ -26,22 +25,6 @@ function useIsMobile(): boolean {
   return isMobile
 }
 
-function fetchAndCacheQuote(
-  instance: InstanceInfo,
-  setCache: (
-    fn: (prev: Record<string, PrefetchedQuote>) => Record<string, PrefetchedQuote>,
-  ) => void,
-  setFetched: (fn: (prev: Set<string>) => Set<string>) => void,
-) {
-  const challenge = bytesToHex(crypto.getRandomValues(new Uint8Array(32)))
-  fetchQuote(instance.url, challenge)
-    .then((quoteData) =>
-      setCache((prev) => ({ ...prev, [instance.instance_id]: { quoteData, challenge } })),
-    )
-    .catch(() => {})
-    .finally(() => setFetched((prev) => new Set([...prev, instance.instance_id])))
-}
-
 function buildStepUpdateCb(
   instanceId: string,
   setBg: (fn: (prev: Record<string, number>) => Record<string, number>) => void,
@@ -64,8 +47,9 @@ export function AttestationPortal() {
   const [verifyingAll, setVerifyingAll] = useState(false)
   const [bgProgress, setBgProgress] = useState<Record<string, number>>({})
   const [bgSteps, setBgSteps] = useState<Record<string, StepResult[]>>({})
-  const [quoteCache, setQuoteCache] = useState<Record<string, PrefetchedQuote>>({})
-  const [quoteFetched, setQuoteFetched] = useState<Set<string>>(new Set())
+  // One challenge (verifier nonce) per page load: sent to the aggregator so the
+  // quotes it returns are bound to it, and reused for every verification below.
+  const [challenge] = useState(() => bytesToHex(crypto.getRandomValues(new Uint8Array(32))))
 
   const getInstanceStatus = useCallback(
     (instanceId: string): Status => {
@@ -137,20 +121,30 @@ export function AttestationPortal() {
     [history],
   )
 
+  // Index instances by id once per `cvms` change, so per-card lookups below are
+  // O(1) instead of re-scanning (and re-allocating) the whole list every render.
+  const instancesById = useMemo(() => {
+    const map = new Map<string, InstanceInfo>()
+    for (const cvm of cvms) {
+      for (const instance of cvm.instances) {
+        map.set(instance.instance_id, instance)
+      }
+    }
+    return map
+  }, [cvms])
+
   const getInstanceQuote = useCallback(
     (instanceId: string): string | undefined => {
       if (selectedInstance?.instance_id === instanceId && result?.quoteHex) {
         return result.quoteHex
       }
-      return quoteCache[instanceId]?.quoteData.quote
+      return instancesById.get(instanceId)?.quote.quote
     },
-    [selectedInstance, result, quoteCache],
+    [selectedInstance, result, instancesById],
   )
 
-  const isInstanceQuoteLoading = useCallback(
-    (instanceId: string): boolean => !quoteFetched.has(instanceId),
-    [quoteFetched],
-  )
+  // Quotes arrive with the CVM list, so there is no separate quote-loading state.
+  const isInstanceQuoteLoading = useCallback((): boolean => false, [])
 
   const getInstanceSteps = useCallback(
     (instanceId: string): StepResult[] | null => {
@@ -163,11 +157,6 @@ export function AttestationPortal() {
 
   const handleCvmsLoaded = useCallback((loaded: CvmInfo[]) => {
     setCvms(loaded)
-    loaded.forEach((cvm) => {
-      cvm.instances.forEach((instance) => {
-        fetchAndCacheQuote(instance, setQuoteCache, setQuoteFetched)
-      })
-    })
   }, [])
 
   const handleHome = useCallback(() => reset(), [reset])
@@ -183,7 +172,7 @@ export function AttestationPortal() {
 
   const handleVerifyInstance = useCallback(
     async (instance: InstanceInfo) => {
-      const attestResult = await run(instance, quoteCache[instance.instance_id])
+      const attestResult = await run(instance, challenge)
       if (!attestResult) return
       const now = Date.now()
       setHistory((prev) => ({
@@ -195,7 +184,7 @@ export function AttestationPortal() {
         },
       }))
     },
-    [run, quoteCache],
+    [run, challenge],
   )
 
   const handleVerifyAll = useCallback(
@@ -210,7 +199,7 @@ export function AttestationPortal() {
           buildStepUpdateCb(instance.instance_id, setBgProgress, setBgSteps),
         )
         try {
-          const attestResult = await verifier.verify(instance.url, quoteCache[instance.instance_id])
+          const attestResult = await verifier.verify(instance, challenge)
           const now = Date.now()
           setHistory((prev) => ({
             ...prev,
@@ -242,7 +231,7 @@ export function AttestationPortal() {
         setVerifyingAll(false)
       }
     },
-    [status, verifyingAll, quoteCache],
+    [status, verifyingAll, challenge],
   )
 
   const handleVerifyAllInstances = useCallback(() => {
@@ -284,6 +273,7 @@ export function AttestationPortal() {
       >
         <div style={{ position: isMobile ? 'static' : 'sticky', top: 70, alignSelf: 'start' }}>
           <ComponentSelector
+            challenge={challenge}
             selected={selectedCvm}
             onSelect={handleSelect}
             onCvmsLoaded={handleCvmsLoaded}

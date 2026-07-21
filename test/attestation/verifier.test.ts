@@ -1,16 +1,11 @@
-import { fetchQuote, fetchAppInfo } from '@/attestation/services/quote-service'
 import { verifyQuoteWithDcap } from '@/attestation/services/dcap-verifier'
 import { checkProofOfCloud } from '@/attestation/services/proof-of-cloud'
 import { replayRtmr3 } from '@/attestation/services/rtmr-replay'
 import { AttestationVerifier } from '@/attestation/services/verifier'
 import { bytesToHex } from '@/shared/lib/utils'
 import type { DcapVerifyResult } from '@/attestation/services/dcap-verifier'
-import type { EventLogEntry, TdxQuoteBody } from '@/attestation/types/index'
+import type { EventLogEntry, TdxQuoteBody, InstanceInfo, QuoteData } from '@/attestation/types/index'
 
-vi.mock('@/attestation/services/quote-service', () => ({
-  fetchQuote: vi.fn(),
-  fetchAppInfo: vi.fn(),
-}))
 vi.mock('@/attestation/services/dcap-verifier', () => ({
   verifyQuoteWithDcap: vi.fn(),
 }))
@@ -21,10 +16,14 @@ vi.mock('@/attestation/services/rtmr-replay', () => ({
   replayRtmr3: vi.fn(),
 }))
 
-const CVM_URL = 'https://cvm.example'
 const CHALLENGE = 'test-challenge'
 const COMPUTED_RTMR3 = new Uint8Array([0xde, 0xad, 0xbe, 0xef])
 const COMPOSE_CONTENT = 'version: "3"\nservices:\n  app:\n    image: example'
+
+/** Builds the instance passed to `verify`, carrying the quote and compose. */
+function makeInstance(quote: QuoteData, appCompose: string = COMPOSE_CONTENT): InstanceInfo {
+  return { instance_id: 'i1', machine_id: 'm1', quote, app_compose: appCompose }
+}
 
 function expectedReportDataHex(): string {
   const expectedBytes = new Uint8Array(64)
@@ -69,7 +68,6 @@ function baseEventLog(declaredComposeHash: string): EventLogEntry[] {
 async function setupHappyPath(quoteBodyOverrides: Partial<TdxQuoteBody> = {}) {
   const declaredComposeHash = await composeHashHex(COMPOSE_CONTENT)
 
-  vi.mocked(fetchAppInfo).mockResolvedValue({ app_compose: COMPOSE_CONTENT })
   vi.mocked(verifyQuoteWithDcap).mockResolvedValue({
     verified: true,
     tcb_status: 'UpToDate',
@@ -80,7 +78,7 @@ async function setupHappyPath(quoteBodyOverrides: Partial<TdxQuoteBody> = {}) {
   vi.mocked(replayRtmr3).mockResolvedValue(COMPUTED_RTMR3)
 
   return {
-    quoteData: { quote: 'deadbeef', event_log: baseEventLog(declaredComposeHash) },
+    quoteData: { quote: 'deadbeef', event_log: baseEventLog(declaredComposeHash) } as QuoteData,
   }
 }
 
@@ -93,7 +91,7 @@ describe('AttestationVerifier.verify', () => {
     const { quoteData } = await setupHappyPath()
     const verifier = new AttestationVerifier(() => {})
 
-    const result = await verifier.verify(CVM_URL, { quoteData, challenge: CHALLENGE })
+    const result = await verifier.verify(makeInstance(quoteData), CHALLENGE)
 
     expect(result.status).toBe('verified')
     expect(result.steps.every((s) => s.status === 'verified')).toBe(true)
@@ -101,23 +99,12 @@ describe('AttestationVerifier.verify', () => {
     expect(result.composeContent).toBe(COMPOSE_CONTENT)
   })
 
-  it('fails at step 1 when fetching the quote or app info errors', async () => {
-    vi.mocked(fetchQuote).mockRejectedValue(new Error('network error'))
-    vi.mocked(fetchAppInfo).mockResolvedValue({ app_compose: '' })
-    const verifier = new AttestationVerifier(() => {})
-
-    const result = await verifier.verify(CVM_URL)
-
-    expect(result.status).toBe('failed')
-    expect(result.failedStep).toBe(1)
-  })
-
   it('fails at step 1 when the DCAP verifier rejects (e.g. timeout)', async () => {
     const { quoteData } = await setupHappyPath()
     vi.mocked(verifyQuoteWithDcap).mockRejectedValue(new Error('Timeout'))
     const verifier = new AttestationVerifier(() => {})
 
-    const result = await verifier.verify(CVM_URL, { quoteData, challenge: CHALLENGE })
+    const result = await verifier.verify(makeInstance(quoteData), CHALLENGE)
 
     expect(result.status).toBe('failed')
     expect(result.failedStep).toBe(1)
@@ -134,7 +121,7 @@ describe('AttestationVerifier.verify', () => {
     })
     const verifier = new AttestationVerifier(() => {})
 
-    const result = await verifier.verify(CVM_URL, { quoteData, challenge: CHALLENGE })
+    const result = await verifier.verify(makeInstance(quoteData), CHALLENGE)
 
     expect(result.status).toBe('failed')
     expect(result.failedStep).toBe(1)
@@ -151,7 +138,7 @@ describe('AttestationVerifier.verify', () => {
     })
     const verifier = new AttestationVerifier(() => {})
 
-    const result = await verifier.verify(CVM_URL, { quoteData, challenge: CHALLENGE })
+    const result = await verifier.verify(makeInstance(quoteData), CHALLENGE)
 
     expect(result.status).toBe('failed')
     expect(result.failedStep).toBe(2)
@@ -161,7 +148,7 @@ describe('AttestationVerifier.verify', () => {
     const { quoteData } = await setupHappyPath({ reportdata: '0xffffffff' })
     const verifier = new AttestationVerifier(() => {})
 
-    const result = await verifier.verify(CVM_URL, { quoteData, challenge: CHALLENGE })
+    const result = await verifier.verify(makeInstance(quoteData), CHALLENGE)
 
     expect(result.status).toBe('failed')
     expect(result.failedStep).toBe(2)
@@ -172,7 +159,7 @@ describe('AttestationVerifier.verify', () => {
     vi.mocked(replayRtmr3).mockResolvedValue(new Uint8Array([0x00]))
     const verifier = new AttestationVerifier(() => {})
 
-    const result = await verifier.verify(CVM_URL, { quoteData, challenge: CHALLENGE })
+    const result = await verifier.verify(makeInstance(quoteData), CHALLENGE)
 
     expect(result.status).toBe('failed')
     expect(result.failedStep).toBe(4)
@@ -183,7 +170,7 @@ describe('AttestationVerifier.verify', () => {
     vi.mocked(replayRtmr3).mockRejectedValue(new Error('malformed event log'))
     const verifier = new AttestationVerifier(() => {})
 
-    const result = await verifier.verify(CVM_URL, { quoteData, challenge: CHALLENGE })
+    const result = await verifier.verify(makeInstance(quoteData), CHALLENGE)
 
     expect(result.status).toBe('failed')
     expect(result.failedStep).toBe(4)
@@ -196,7 +183,7 @@ describe('AttestationVerifier.verify', () => {
     )
     const verifier = new AttestationVerifier(() => {})
 
-    const result = await verifier.verify(CVM_URL, { quoteData, challenge: CHALLENGE })
+    const result = await verifier.verify(makeInstance(quoteData), CHALLENGE)
 
     expect(result.status).toBe('failed')
     expect(result.failedStep).toBe(5)
@@ -209,18 +196,17 @@ describe('AttestationVerifier.verify', () => {
     )
     const verifier = new AttestationVerifier(() => {})
 
-    const result = await verifier.verify(CVM_URL, { quoteData, challenge: CHALLENGE })
+    const result = await verifier.verify(makeInstance(quoteData), CHALLENGE)
 
     expect(result.status).toBe('failed')
     expect(result.failedStep).toBe(6)
   })
 
-  it('fails at step 6 when the CVM info response has no app manifest', async () => {
+  it('fails at step 6 when the app manifest is missing from the response', async () => {
     const { quoteData } = await setupHappyPath()
-    vi.mocked(fetchAppInfo).mockResolvedValue({ app_compose: '' })
     const verifier = new AttestationVerifier(() => {})
 
-    const result = await verifier.verify(CVM_URL, { quoteData, challenge: CHALLENGE })
+    const result = await verifier.verify(makeInstance(quoteData, ''), CHALLENGE)
 
     expect(result.status).toBe('failed')
     expect(result.failedStep).toBe(6)
@@ -228,13 +214,36 @@ describe('AttestationVerifier.verify', () => {
 
   it('fails at step 6 when the computed compose hash does not match the declared one', async () => {
     const { quoteData } = await setupHappyPath()
-    vi.mocked(fetchAppInfo).mockResolvedValue({ app_compose: 'a different compose file' })
     const verifier = new AttestationVerifier(() => {})
 
-    const result = await verifier.verify(CVM_URL, { quoteData, challenge: CHALLENGE })
+    const result = await verifier.verify(
+      makeInstance(quoteData, 'a different compose file'),
+      CHALLENGE,
+    )
 
     expect(result.status).toBe('failed')
     expect(result.failedStep).toBe(6)
+  })
+
+  it('fails at step 1 when the aggregator payload has no quote', async () => {
+    const verifier = new AttestationVerifier(() => {})
+
+    const result = await verifier.verify(makeInstance({ quote: '', event_log: [] }), CHALLENGE)
+
+    expect(result.status).toBe('failed')
+    expect(result.failedStep).toBe(1)
+  })
+
+  it('fails at step 4 when the aggregator payload has no event log', async () => {
+    const verifier = new AttestationVerifier(() => {})
+
+    const result = await verifier.verify(
+      makeInstance({ quote: 'deadbeef', event_log: undefined as unknown as string }),
+      CHALLENGE,
+    )
+
+    expect(result.status).toBe('failed')
+    expect(result.failedStep).toBe(4)
   })
 
   it('reports each step transition through the update callback', async () => {
@@ -244,7 +253,7 @@ describe('AttestationVerifier.verify', () => {
       updates.push(steps.map((s) => s.status))
     })
 
-    await verifier.verify(CVM_URL, { quoteData, challenge: CHALLENGE })
+    await verifier.verify(makeInstance(quoteData), CHALLENGE)
 
     expect(updates.length).toBeGreaterThan(0)
     expect(updates.at(-1)).toEqual(Array(6).fill('verified'))

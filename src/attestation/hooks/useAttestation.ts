@@ -1,17 +1,13 @@
 import { useCallback, useReducer } from 'react'
 import type { CvmInfo, InstanceInfo, AttestationResult } from '../types/index.ts'
-import {
-  AttestationVerifier,
-  STEP_DEFINITIONS,
-  type PrefetchedQuote,
-} from '../services/verifier.ts'
+import { AttestationVerifier, STEP_DEFINITIONS } from '../services/verifier.ts'
 import { attestationReducer, makeInitialState } from './attestation-state.ts'
 import type { AttestationState } from './attestation-state.ts'
 
 export interface UseAttestationReturn {
   state: AttestationState
   selectCvm: (cvm: CvmInfo) => void
-  run: (instance?: InstanceInfo, prefetched?: PrefetchedQuote) => Promise<AttestationResult | null>
+  run: (instance: InstanceInfo | undefined, challenge: string) => Promise<AttestationResult | null>
   reset: () => void
 }
 
@@ -24,8 +20,8 @@ export function useAttestation(): UseAttestationReturn {
 
   const run = useCallback(
     async (
-      instance?: InstanceInfo,
-      prefetched?: PrefetchedQuote,
+      instance: InstanceInfo | undefined,
+      challenge: string,
     ): Promise<AttestationResult | null> => {
       const target = instance ?? state.selectedInstance
       if (!target || state.status === 'verifying') return null
@@ -41,7 +37,7 @@ export function useAttestation(): UseAttestationReturn {
 
       let result: AttestationResult
       try {
-        result = await verifier.verify(target.url, prefetched)
+        result = await verifier.verify(target, challenge)
       } catch (err) {
         result = {
           status: 'failed',

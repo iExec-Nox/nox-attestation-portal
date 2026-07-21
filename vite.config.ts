@@ -30,7 +30,13 @@ export default defineConfig(({ mode }) => {
           '/api/cvms': {
             target: cvmsUrl.origin,
             changeOrigin: true,
-            rewrite: () => cvmsUrl.pathname,
+            // Preserve the incoming query string (e.g. `?challenge=…`) — only the
+            // path is rewritten to the configured CVMS endpoint.
+            rewrite: (path) => {
+              const queryIndex = path.indexOf('?')
+              const query = queryIndex === -1 ? '' : path.slice(queryIndex)
+              return cvmsUrl.pathname + query
+            },
           },
         }),
         ...(pocUrl && {
