@@ -81,6 +81,18 @@ export class AttestationVerifier {
     const quoteData = instance.quote
     const appCompose = instance.app_compose
 
+    // Validate the aggregator payload up front: the TS types guarantee these
+    // fields at compile time, but a malformed runtime response must fail on a
+    // specific step rather than throw on a raw field access below.
+    if (!quoteData?.quote?.trim()) {
+      push(0, { status: 'failed', error: 'Quote missing from aggregator response' })
+      return { status: 'failed', steps, failedStep: 1, errorMessage: 'Missing quote' }
+    }
+    if (quoteData.event_log === undefined || quoteData.event_log === null) {
+      push(3, { status: 'failed', error: 'Event log missing from aggregator response' })
+      return { status: 'failed', steps, failedStep: 4, errorMessage: 'Missing event log' }
+    }
+
     // ── Step 1: Verify Quote Signature ────────────────────────────────────
     push(0, { status: 'verifying' })
 

@@ -225,6 +225,27 @@ describe('AttestationVerifier.verify', () => {
     expect(result.failedStep).toBe(6)
   })
 
+  it('fails at step 1 when the aggregator payload has no quote', async () => {
+    const verifier = new AttestationVerifier(() => {})
+
+    const result = await verifier.verify(makeInstance({ quote: '', event_log: [] }), CHALLENGE)
+
+    expect(result.status).toBe('failed')
+    expect(result.failedStep).toBe(1)
+  })
+
+  it('fails at step 4 when the aggregator payload has no event log', async () => {
+    const verifier = new AttestationVerifier(() => {})
+
+    const result = await verifier.verify(
+      makeInstance({ quote: 'deadbeef', event_log: undefined as unknown as string }),
+      CHALLENGE,
+    )
+
+    expect(result.status).toBe('failed')
+    expect(result.failedStep).toBe(4)
+  })
+
   it('reports each step transition through the update callback', async () => {
     const { quoteData } = await setupHappyPath()
     const updates: string[][] = []
