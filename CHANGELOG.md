@@ -1,5 +1,42 @@
 # Changelog
 
+## [1.1.0-beta.2](https://github.com/iExec-Nox/nox-attestation-portal/compare/v1.1.0-beta.1...v1.1.0-beta.2) (2026-07-22)
+
+
+### 🚀 Added
+
+* **attestation:** add proof-of-cloud whitelist check ([e6aee8c](https://github.com/iExec-Nox/nox-attestation-portal/commit/e6aee8c9385fc5fa690c948268b26e7ab11072be))
+* use dcap qvl instead of remote phala verifier ([0522465](https://github.com/iExec-Nox/nox-attestation-portal/commit/0522465294f4f8a605b6e6d71c473249665d0abd))
+* use js library to verify quote instead of Phala Cloud ([bd11b11](https://github.com/iExec-Nox/nox-attestation-portal/commit/bd11b1174a9350a536da29aff18a4b217f428ecb))
+
+
+### ✍️ Changed
+
+* **api:** forward query string to CVMS aggregator ([35fdf48](https://github.com/iExec-Nox/nox-attestation-portal/commit/35fdf4815da63199e92b3e554469beb928c1e660))
+* **attestation:** run proof-of-cloud check in parallel with dcap ([22e973a](https://github.com/iExec-Nox/nox-attestation-portal/commit/22e973a96364521e0057d56d95f6b6606ff737a8))
+* **attestation:** validate quote hex and simplify DCAP timeout handling ([6e4fe06](https://github.com/iExec-Nox/nox-attestation-portal/commit/6e4fe064662c8fee4c65e0ae9945f4e2c1cd49dc))
+* change conditions of successful attestation ([0ea0715](https://github.com/iExec-Nox/nox-attestation-portal/commit/0ea0715056b78a902a2b4e2997a1dd3668943b5c))
+* **component-selector:** pass challenge to fetch cvms ([2f7093c](https://github.com/iExec-Nox/nox-attestation-portal/commit/2f7093cc0ebd9e0943cf536ff58e451b6721d0e8))
+* correct title casing to Nox ([85ac21b](https://github.com/iExec-Nox/nox-attestation-portal/commit/85ac21becdd00d69ba25b78017a52a25862e03e1))
+* correct title casing to Nox ([6ccf140](https://github.com/iExec-Nox/nox-attestation-portal/commit/6ccf1402434ab3f1b8b09b171261c0bb1a8c6f61))
+* get quote and info from aggregator ([d1db030](https://github.com/iExec-Nox/nox-attestation-portal/commit/d1db03036567cb44d5950c623a39b73d89f4f8e4))
+* **portal:** index instances by id for constant-time quote lookup ([021cae1](https://github.com/iExec-Nox/nox-attestation-portal/commit/021cae11bb87191b064163241d2ba6ee2423e228))
+* **portal:** use per-load challenge, drop quote prefetch cache ([6e9205b](https://github.com/iExec-Nox/nox-attestation-portal/commit/6e9205b5131f5ded2fca06bd8e517bb84999baef))
+* **proxy:** align dev phala proxy path with production rewrite ([ba7be6e](https://github.com/iExec-Nox/nox-attestation-portal/commit/ba7be6e0f1882b15ebdac67e287e4c800bd52cf4))
+* **quote-service:** fetch cvms with challenge, drop direct cvm calls ([bb001ca](https://github.com/iExec-Nox/nox-attestation-portal/commit/bb001cabf9f05b02bcdbe5115011a15af9ecfa98))
+* **types:** embed quote and app_compose in instance info ([b3728ed](https://github.com/iExec-Nox/nox-attestation-portal/commit/b3728eda2bf9356a0f4048b86e0b5d0999ff2165))
+* **use-attestation:** thread challenge through run ([a194f07](https://github.com/iExec-Nox/nox-attestation-portal/commit/a194f072d843c30488894658bd15f1c9e9125463))
+* **verifier:** guard against malformed aggregator payload ([439c154](https://github.com/iExec-Nox/nox-attestation-portal/commit/439c15431c78fccdabf74c55728dcee35b2a002b))
+* **verifier:** verify from provided instance data instead of fetching ([853d7c7](https://github.com/iExec-Nox/nox-attestation-portal/commit/853d7c778ad1ac6c3eb0ead567f7b6d1d4f7203a))
+* **vite:** preserve query string when proxying /api/cvms ([336a7ee](https://github.com/iExec-Nox/nox-attestation-portal/commit/336a7eeeb648cadb2a13920cc4237b0156a0f051))
+
+
+### 📋 Misc
+
+* **attestation:** add unit tests for DCAP verifier, orchestrator, and proof-of-cloud check ([4122a7c](https://github.com/iExec-Nox/nox-attestation-portal/commit/4122a7ce76941378b1e9373de77347fbce64a349))
+* remove dead phala cloud verify api traces ([c407be7](https://github.com/iExec-Nox/nox-attestation-portal/commit/c407be7502ab2463158634da344d0782dc4512c8))
+* **verifier:** verify from instance data, drop fetch mocks ([a260406](https://github.com/iExec-Nox/nox-attestation-portal/commit/a260406bb08543bb131c2a312b526db25cbf1eae))
+
 ## [1.1.0-beta.1](https://github.com/iExec-Nox/nox-attestation-portal/compare/v1.1.0-beta...v1.1.0-beta.1) (2026-06-17)
 
 
