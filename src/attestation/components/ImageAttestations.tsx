@@ -288,6 +288,7 @@ function ImageCard({ image, state }: Readonly<{ image: AttestedImage; state?: Pr
 export function ImageAttestations({ composeContent }: Readonly<{ composeContent: string }>) {
   const images = useMemo(() => extractComposeImages(composeContent), [composeContent])
   const [states, setStates] = useState<Record<string, ProvenanceState>>({})
+  const [collapsed, setCollapsed] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -323,12 +324,34 @@ export function ImageAttestations({ composeContent }: Readonly<{ composeContent:
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <MatIcon name="account_tree" size={16} style={{ color: 'var(--ct-brand)' }} />
         <Eyebrow>Supply chain · {images.length} images</Eyebrow>
+        <div style={{ flex: 1 }} />
+        <button
+          type="button"
+          onClick={() => setCollapsed((c) => !c)}
+          aria-expanded={!collapsed}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: 'var(--ct-fg-4)',
+            font: '600 12px/1 var(--ct-font-ui)',
+            padding: '2px 0',
+          }}
+        >
+          {collapsed ? 'Expand' : 'Collapse'}
+          <MatIcon name={collapsed ? 'expand_more' : 'expand_less'} size={16} />
+        </button>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {images.map((img) => (
-          <ImageCard key={imageKey(img)} image={img} state={states[stateKey(img)]} />
-        ))}
-      </div>
+      {!collapsed && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {images.map((img) => (
+            <ImageCard key={imageKey(img)} image={img} state={states[stateKey(img)]} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
