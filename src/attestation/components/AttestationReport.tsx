@@ -1,5 +1,6 @@
 import { SummarySection } from './SummarySection.tsx'
 import { CodePreviewContainer } from './CodePreviewContainer.tsx'
+import { ImageAttestations } from './ImageAttestations.tsx'
 import type { AttestationResult } from '../types/index.ts'
 
 function ComposeManifest({
@@ -37,6 +38,7 @@ export function AttestationReport({ result }: Readonly<{ result: AttestationResu
       {result.composeContent && (
         <ComposeManifest content={dockerComposeContent} hash={composeHash} ok={ok} />
       )}
+      {result.composeContent && <ImageAttestations composeContent={result.composeContent} />}
     </div>
   )
 }
