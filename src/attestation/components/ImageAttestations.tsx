@@ -125,10 +125,10 @@ function ProvenanceLinks({ provenance }: Readonly<{ provenance: SlsaProvenance }
         />
       )}
       {wfPath && p.workflowUrl && (
-        <InfoRow label="Build workflow" value={wfPath} href={p.workflowUrl} />
+        <InfoRow label="Triggering workflow" value={wfPath} href={p.workflowUrl} />
       )}
       {builderPath && p.builderUrl && (
-        <InfoRow label="Builder" value={builderPath} href={p.builderUrl} />
+        <InfoRow label="Signer workflow" value={builderPath} href={p.builderUrl} />
       )}
       <InfoRow
         label="SLSA attestation"
