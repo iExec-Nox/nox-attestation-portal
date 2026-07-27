@@ -31,6 +31,11 @@ export interface CheckSlsaInput {
   digest: string
   /** Optional GitHub token (private repos / anonymous rate limit). */
   token?: string
+  /**
+   * Directory for the Sigstore TUF cache. On serverless (read-only FS) point
+   * this at a writable path such as `/tmp`. Defaults to sigstore's own path.
+   */
+  tufCachePath?: string
 }
 
 /** Minimal view of the Sigstore bundle fields this module reads. */
@@ -100,7 +105,10 @@ export async function checkSlsa(input: CheckSlsaInput): Promise<CheckSlsaResult>
       `https://api.github.com/repos/${attestationRepo}/attestations/sha256:${D}`,
       { headers },
     )
-    data = await resp.json().catch(() => ({}))
+    data = (await resp.json().catch(() => ({}))) as {
+      attestations?: GithubAttestation[]
+      message?: string
+    }
     if (!resp.ok) {
       return { verified: false, error: `GitHub API ${resp.status}: ${data.message ?? resp.statusText}` }
     }
@@ -117,7 +125,10 @@ export async function checkSlsa(input: CheckSlsaInput): Promise<CheckSlsaResult>
   // --- 2) cryptographic verification: signature + Fulcio + Rekor + OIDC issuer ---
   try {
     // The GitHub bundle is a serialized Sigstore bundle; sigstore.verify accepts it.
-    await verify(bundle as unknown as Parameters<typeof verify>[0], { certificateIssuer: ISSUER })
+    await verify(bundle as unknown as Parameters<typeof verify>[0], {
+      certificateIssuer: ISSUER,
+      tufCachePath: input.tufCachePath,
+    })
   } catch (e) {
     return { verified: false, error: `Signature verification failed: ${(e as Error).message}` }
   }
