@@ -1,3 +1,5 @@
+import type { ResolvedImageAttestation } from '../config/image-attestation-map.ts'
+
 export interface InstanceInfo {
   instance_id: string
   machine_id: string
@@ -11,6 +13,27 @@ export interface CvmInfo {
   app_id: string
   name: string
   instances: InstanceInfo[]
+}
+
+/** Whether an image can be SLSA-verified (mapped) or is an external image. */
+export type ImageVerifiability = 'verifiable' | 'third-party'
+
+/** A container image referenced by a service in the attested docker-compose. */
+export interface AttestedImage {
+  /** Compose service name, e.g. "nox-kms", "quote-service". */
+  service: string
+  /** Full image reference as written in the compose (with tag and/or digest). */
+  ref: string
+  /** Normalized registry path without tag/digest — the mapping key. */
+  registryPath: string
+  /** Tag if present (usually absent: NOX images are digest-pinned). */
+  tag?: string
+  /** sha256 digest (e.g. "sha256:abc…"), when the image is digest-pinned. */
+  digest?: string
+  /** `verifiable` when covered by the mapping, else `third-party`. */
+  verifiability: ImageVerifiability
+  /** Attestation repos to verify against, present when `verifiable`. */
+  attestation?: ResolvedImageAttestation
 }
 
 export interface EventLogEntry {
