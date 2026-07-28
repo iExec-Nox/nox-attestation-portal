@@ -1,7 +1,11 @@
 import os from 'node:os'
 import path from 'node:path'
 
-import { checkSlsa } from './_lib/check-slsa.ts'
+// Vercel runs this file as compiled JS via Node's own ESM loader (no Vite/esbuild
+// bundling step), which resolves imports against what's actually on disk after
+// transpilation — so this must reference the .js output, not the .ts source
+// (unlike src/, which Vite bundles and can use .ts specifiers directly).
+import { checkSlsa } from './_lib/check-slsa.js'
 
 // sigstore-js needs Node (node:crypto, on-disk TUF cache), so this function
 // runs on the Node.js runtime rather than the edge runtime used by the others.
