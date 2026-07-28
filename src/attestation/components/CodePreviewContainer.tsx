@@ -2,12 +2,10 @@ import { useState } from 'react'
 import { MatIcon, Verdict } from '../../shared/ui/index.tsx'
 
 interface CodePreviewContainerProps {
-  title: string
   content: string
   filename?: string
   hash?: string
   verdictOk?: boolean
-  defaultCollapsed?: boolean
 }
 
 /* ── YAML tokenizer ── */
@@ -116,15 +114,12 @@ function buildLines(content: string): RenderedLine[] {
 }
 
 export function CodePreviewContainer({
-  title,
   content,
   filename = 'docker-compose.yaml',
   hash,
   verdictOk,
-  defaultCollapsed = false,
 }: Readonly<CodePreviewContainerProps>) {
   const [copied, setCopied] = useState(false)
-  const [collapsed, setCollapsed] = useState(defaultCollapsed)
 
   const handleCopy = () => {
     navigator.clipboard.writeText(content).catch(() => {})
@@ -144,26 +139,21 @@ export function CodePreviewContainer({
         background: 'rgba(0,0,0,0.32)',
       }}
     >
-      {/* Title bar */}
+      {/* Header: filename + verdict/hash + copy */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: 10,
-          padding: '12px 16px',
+          gap: 8,
+          padding: '10px 16px',
           borderBottom: '1px solid rgba(255,255,255,0.06)',
+          background: 'rgba(255,255,255,0.01)',
         }}
       >
-        <MatIcon name="terminal" size={15} color="var(--ct-fg-5)" />
-        <span
-          style={{
-            font: '700 11px/1 var(--ct-font-ui)',
-            letterSpacing: '1.2px',
-            textTransform: 'uppercase' as const,
-            color: 'var(--ct-fg-4)',
-          }}
-        >
-          {title}
+        <MatIcon name="description" size={14} color="var(--ct-fg-5)" />
+        <span style={{ font: '500 12px/1 var(--ct-font-mono)', color: 'var(--ct-fg-4)' }}>
+          {filename}
+          <span style={{ color: 'var(--ct-fg-6)', marginLeft: 6 }}>· read-only</span>
         </span>
         {verdictOk !== undefined && <Verdict ok={verdictOk} />}
         {shortHash && (
@@ -179,94 +169,52 @@ export function CodePreviewContainer({
         <div style={{ flex: 1 }} />
         <button
           type="button"
-          onClick={() => setCollapsed((c) => !c)}
+          onClick={handleCopy}
           style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: 4,
-            background: 'none',
-            border: 'none',
+            gap: 5,
+            height: 28,
+            padding: '0 10px',
+            borderRadius: 8,
+            background: 'transparent',
+            border: '1px solid rgba(255,255,255,0.10)',
             cursor: 'pointer',
-            color: 'var(--ct-fg-4)',
-            font: '600 12px/1 var(--ct-font-ui)',
-            padding: '2px 0',
+            color: copied ? 'var(--ct-brand)' : 'var(--ct-fg-3)',
+            font: '600 11px/1 var(--ct-font-ui)',
           }}
         >
-          {collapsed ? 'Expand' : 'Collapse'}
-          <MatIcon name={collapsed ? 'expand_more' : 'expand_less'} size={16} />
+          <MatIcon name={copied ? 'check' : 'content_copy'} size={12} />
+          {copied ? 'Copied' : 'Copy'}
         </button>
       </div>
 
-      {/* Sub-header + content */}
-      {!collapsed && (
-        <>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '8px 16px',
-              borderBottom: '1px solid rgba(255,255,255,0.05)',
-              background: 'rgba(255,255,255,0.01)',
-            }}
-          >
-            <MatIcon name="description" size={14} color="var(--ct-fg-5)" />
+      <pre style={{ overflow: 'auto', margin: 0, maxHeight: 460, padding: '14px 0' }}>
+        {renderedLines.map((ln) => (
+          <div key={ln.id} style={{ display: 'flex', minHeight: '1.65em' }}>
             <span
-              style={{ font: '500 12px/1 var(--ct-font-mono)', color: 'var(--ct-fg-4)', flex: 1 }}
-            >
-              {filename}
-              <span style={{ color: 'var(--ct-fg-6)', marginLeft: 6 }}>· read-only</span>
-            </span>
-            <button
-              type="button"
-              onClick={handleCopy}
               style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-                height: 28,
-                padding: '0 10px',
-                borderRadius: 8,
-                background: 'transparent',
-                border: '1px solid rgba(255,255,255,0.10)',
-                cursor: 'pointer',
-                color: copied ? 'var(--ct-brand)' : 'var(--ct-fg-3)',
-                font: '600 11px/1 var(--ct-font-ui)',
+                width: 42,
+                textAlign: 'right',
+                paddingRight: 16,
+                color: 'rgba(255,255,255,0.20)',
+                font: '500 12px/1.65 var(--ct-font-mono)',
+                flexShrink: 0,
+                userSelect: 'none' as const,
               }}
             >
-              <MatIcon name={copied ? 'check' : 'content_copy'} size={12} />
-              {copied ? 'Copied' : 'Copy'}
-            </button>
+              {ln.lineNumber}
+            </span>
+            <span style={{ font: '500 12px/1.65 var(--ct-font-mono)', flex: 1 }}>
+              {ln.tokens.map((token) => (
+                <span key={token.id} style={{ color: token.color }}>
+                  {token.text}
+                </span>
+              ))}
+            </span>
           </div>
-
-          <pre style={{ overflow: 'auto', margin: 0, maxHeight: 460, padding: '14px 0' }}>
-            {renderedLines.map((ln) => (
-              <div key={ln.id} style={{ display: 'flex', minHeight: '1.65em' }}>
-                <span
-                  style={{
-                    width: 42,
-                    textAlign: 'right',
-                    paddingRight: 16,
-                    color: 'rgba(255,255,255,0.20)',
-                    font: '500 12px/1.65 var(--ct-font-mono)',
-                    flexShrink: 0,
-                    userSelect: 'none' as const,
-                  }}
-                >
-                  {ln.lineNumber}
-                </span>
-                <span style={{ font: '500 12px/1.65 var(--ct-font-mono)', flex: 1 }}>
-                  {ln.tokens.map((token) => (
-                    <span key={token.id} style={{ color: token.color }}>
-                      {token.text}
-                    </span>
-                  ))}
-                </span>
-              </div>
-            ))}
-          </pre>
-        </>
-      )}
+        ))}
+      </pre>
     </div>
   )
 }
