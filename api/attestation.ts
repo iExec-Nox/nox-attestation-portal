@@ -11,6 +11,15 @@ export const config = { runtime: 'nodejs' }
 // dir, so keep the cache there (persists for the lifetime of a warm instance).
 const TUF_CACHE_PATH = path.join(os.tmpdir(), 'sigstore-tuf')
 
+// sigstore-js pulls in a heavy fetch/cache stack (tuf-js, make-fetch-happen)
+// that isn't designed for ephemeral serverless filesystems. A promise
+// rejecting outside our own try/catch (e.g. a background retry) would
+// otherwise crash the whole function process (Node's default for unhandled
+// rejections) instead of surfacing as a normal 500 response. Log and survive.
+process.on('unhandledRejection', (reason) => {
+  console.error('[api/attestation] Unhandled rejection:', reason)
+})
+
 interface AttestationRequestBody {
   digest?: unknown
   attestationRepo?: unknown

@@ -15,6 +15,7 @@
  *   5. extract the source repo, commit, workflows and links
  */
 import { X509Certificate } from 'node:crypto'
+import type { Bundle } from 'sigstore'
 import { verify } from 'sigstore'
 
 import type { CheckSlsaResult, SlsaProvenance } from '../../src/attestation/types/index.ts'
@@ -38,15 +39,6 @@ export interface CheckSlsaInput {
   tufCachePath?: string
 }
 
-/** Minimal view of the Sigstore bundle fields this module reads. */
-interface SigstoreBundle {
-  dsseEnvelope: { payload: string }
-  verificationMaterial: {
-    certificate?: { rawBytes: string }
-    x509CertificateChain?: { certificates?: Array<{ rawBytes: string }> }
-  }
-}
-
 /** Minimal view of the SLSA v1 in-toto statement this module reads. */
 interface SlsaStatement {
   subject?: Array<{ digest?: { sha256?: string } }>
@@ -61,18 +53,29 @@ interface SlsaStatement {
 }
 
 interface GithubAttestation {
-  bundle?: SigstoreBundle
+  bundle?: Bundle
   bundle_url?: string
 }
 
 const REPO_RE = /^[^/]+\/[^/]+$/
 
-function decodePayload(bundle: SigstoreBundle): SlsaStatement {
-  return JSON.parse(Buffer.from(bundle.dsseEnvelope.payload, 'base64').toString('utf8'))
+function fail(error: string): CheckSlsaResult {
+  return { verified: false, error }
+}
+
+/** Escapes regex metacharacters so untrusted input can't alter a RegExp's meaning. */
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`)
+}
+
+function decodePayload(bundle: Bundle): SlsaStatement {
+  const payload = bundle.dsseEnvelope?.payload
+  if (!payload) throw new Error('Bundle has no DSSE envelope')
+  return JSON.parse(Buffer.from(payload, 'base64').toString('utf8'))
 }
 
 /** Certificate SAN -> "URI:https://github.com/<repo>/.github/workflows/<file>@<ref>". */
-function certSAN(bundle: SigstoreBundle): string {
+function certSAN(bundle: Bundle): string {
   const vm = bundle.verificationMaterial
   const der = vm.certificate?.rawBytes ?? vm.x509CertificateChain?.certificates?.[0]?.rawBytes
   if (!der) throw new Error('No certificate in bundle')
@@ -84,15 +87,15 @@ export async function checkSlsa(input: CheckSlsaInput): Promise<CheckSlsaResult>
   const { attestationRepo, signingRepo, token } = input
 
   if (!REPO_RE.test(attestationRepo)) {
-    return { verified: false, error: `Invalid attestationRepo, expected 'owner/name': ${attestationRepo}` }
+    return fail(`Invalid attestationRepo, expected 'owner/name': ${attestationRepo}`)
   }
   if (!REPO_RE.test(signingRepo)) {
-    return { verified: false, error: `Invalid signingRepo, expected 'owner/name': ${signingRepo}` }
+    return fail(`Invalid signingRepo, expected 'owner/name': ${signingRepo}`)
   }
 
   const D = input.digest.replace(/^sha256:/, '')
   if (!/^[a-f0-9]{64}$/.test(D)) {
-    return { verified: false, error: `Invalid digest, expected 64 hex (sha256): ${input.digest}` }
+    return fail(`Invalid digest, expected 64 hex (sha256): ${input.digest}`)
   }
 
   // --- 1) fetch the bundle from GitHub BY DIGEST (no registry) ---
@@ -110,27 +113,26 @@ export async function checkSlsa(input: CheckSlsaInput): Promise<CheckSlsaResult>
       message?: string
     }
     if (!resp.ok) {
-      return { verified: false, error: `GitHub API ${resp.status}: ${data.message ?? resp.statusText}` }
+      return fail(`GitHub API ${resp.status}: ${data.message ?? resp.statusText}`)
     }
   } catch (e) {
-    return { verified: false, error: `Failed to reach GitHub: ${(e as Error).message}` }
+    return fail(`Failed to reach GitHub: ${(e as Error).message}`)
   }
 
   const attestation = data.attestations?.[0]
   const bundle = attestation?.bundle
   if (!bundle) {
-    return { verified: false, error: `No attestation found for sha256:${D} in ${attestationRepo}` }
+    return fail(`No attestation found for sha256:${D} in ${attestationRepo}`)
   }
 
   // --- 2) cryptographic verification: signature + Fulcio + Rekor + OIDC issuer ---
   try {
-    // The GitHub bundle is a serialized Sigstore bundle; sigstore.verify accepts it.
-    await verify(bundle as unknown as Parameters<typeof verify>[0], {
+    await verify(bundle, {
       certificateIssuer: ISSUER,
       tufCachePath: input.tufCachePath,
     })
   } catch (e) {
-    return { verified: false, error: `Signature verification failed: ${(e as Error).message}` }
+    return fail(`Signature verification failed: ${(e as Error).message}`)
   }
 
   // --- 3) signer identity (cert SAN) against the SIGNING repo ---
@@ -138,21 +140,20 @@ export async function checkSlsa(input: CheckSlsaInput): Promise<CheckSlsaResult>
   try {
     san = certSAN(bundle)
   } catch (e) {
-    return { verified: false, error: (e as Error).message }
+    return fail((e as Error).message)
   }
-  const identityRe = new RegExp(`^URI:https://github\\.com/${signingRepo}/\\.github/workflows/`)
+  const identityRe = new RegExp(`^URI:https://github\\.com/${escapeRegExp(signingRepo)}/\\.github/workflows/`)
   if (!identityRe.test(san)) {
-    return {
-      verified: false,
-      error: `Signer identity mismatch. expected ^URI:https://github.com/${signingRepo}/.github/workflows/ , got: ${san}`,
-    }
+    return fail(
+      `Signer identity mismatch. expected ^URI:https://github.com/${signingRepo}/.github/workflows/ , got: ${san}`,
+    )
   }
 
   // --- 4) binding: attestation subject == supplied digest ---
   const payload = decodePayload(bundle)
   const subject = payload.subject?.find((s) => s.digest?.sha256)?.digest?.sha256
   if (subject !== D) {
-    return { verified: false, error: `Attestation is bound to a different image: expected ${D}, got ${subject}` }
+    return fail(`Attestation is bound to a different image: expected ${D}, got ${subject}`)
   }
 
   // --- 5) extract the source ---
@@ -173,14 +174,14 @@ export async function checkSlsa(input: CheckSlsaInput): Promise<CheckSlsaResult>
       : null
 
   let builderUrl = builderId ?? null
-  const bMatch = (builderId ?? '').match(/^https:\/\/github\.com\/([^/]+\/[^/]+)\/(.+)@([^@]+)$/)
+  const bMatch = /^https:\/\/github\.com\/([^/]+\/[^/]+)\/(.+)@([^@]+)$/.exec(builderId ?? '')
   if (bMatch) builderUrl = `https://github.com/${bMatch[1]}/blob/${bMatch[3]}/${bMatch[2]}`
 
   const rekorUrl = `https://search.sigstore.dev/?hash=${D}`
 
   // The exact attestation id is not exposed by the API; deduce it from the
   // (undocumented) bundle_url, best-effort. Fallback: the attestations page.
-  const attId = (attestation.bundle_url ?? '').match(/\/(\d+)\.json/)?.[1]
+  const attId = /\/(\d+)\.json/.exec(attestation.bundle_url ?? '')?.[1]
   const attestationUrl = attId
     ? `https://github.com/${attestationRepo}/attestations/${attId}`
     : `https://github.com/${attestationRepo}/attestations`
