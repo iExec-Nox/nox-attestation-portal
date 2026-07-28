@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 
 import {
   CopyButton,
-  Eyebrow,
   MatIcon,
   StatusBadge,
   getComponentIcon,
@@ -12,13 +11,42 @@ import { fetchImageProvenance } from '../services/attestation-provenance.ts'
 import { extractComposeImages } from '../services/compose-images.ts'
 import type { AttestedImage, CheckSlsaResult, SlsaProvenance } from '../types/index.ts'
 
-type ProvenanceState = { status: 'verifying' } | { status: 'done'; result: CheckSlsaResult }
+export type ProvenanceState = { status: 'verifying' } | { status: 'done'; result: CheckSlsaResult }
 
 /** React list key: service names are unique within a compose. */
 const imageKey = (img: AttestedImage): string => img.service
 
 /** Verification-state key: by digest, so images sharing one digest share state. */
-const stateKey = (img: AttestedImage): string => img.digest ?? img.service
+export const stateKey = (img: AttestedImage): string => img.digest ?? img.service
+
+/**
+ * Extracts the images referenced by a compose manifest and verifies each
+ * one's SLSA provenance. Lifted out of the list component so the parent
+ * section can also read `images`/`states` to render an at-a-glance summary.
+ */
+export function useWorkloadImages(composeContent: string) {
+  const images = useMemo(() => extractComposeImages(composeContent), [composeContent])
+  const [states, setStates] = useState<Record<string, ProvenanceState>>({})
+
+  useEffect(() => {
+    let cancelled = false
+    // No initial setState here (a missing entry already renders as "verifying");
+    // we only record results as they resolve, off the synchronous effect path.
+    for (const img of images) {
+      if (img.verifiability !== 'verifiable') continue
+      fetchImageProvenance(img).then((result) => {
+        if (cancelled) return
+        setStates((prev) => ({ ...prev, [stateKey(img)]: { status: 'done', result } }))
+      })
+    }
+
+    return () => {
+      cancelled = true
+    }
+  }, [images])
+
+  return { images, states }
+}
 
 /* ── External-link icon button (mirrors SummaryRow's link affordance) ── */
 function ExtLink({ href, title }: Readonly<{ href: string; title: string }>) {
@@ -172,8 +200,9 @@ function CardBadge({ image, state }: Readonly<{ image: AttestedImage; state?: Pr
   return <StatusBadge status={state.result.verified ? 'verified' : 'failed'} />
 }
 
-/* ── One image card ── */
+/* ── One image card (collapsible) ── */
 function ImageCard({ image, state }: Readonly<{ image: AttestedImage; state?: ProvenanceState }>) {
+  const [collapsed, setCollapsed] = useState(true)
   const hex = image.digest?.replace(/^sha256:/, '')
   const result = state?.status === 'done' ? state.result : null
   const provenance = result?.verified ? result.provenance : null
@@ -191,8 +220,25 @@ function ImageCard({ image, state }: Readonly<{ image: AttestedImage; state?: Pr
         border: '1px solid rgba(255,255,255,0.06)',
       }}
     >
-      {/* header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+      {/* header (click to collapse/expand) */}
+      <button
+        type="button"
+        onClick={() => setCollapsed((c) => !c)}
+        aria-expanded={!collapsed}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          minWidth: 0,
+          background: 'none',
+          border: 'none',
+          padding: 0,
+          margin: 0,
+          cursor: 'pointer',
+          textAlign: 'left',
+          width: '100%',
+        }}
+      >
         <span
           style={{
             width: 30,
@@ -235,123 +281,82 @@ function ImageCard({ image, state }: Readonly<{ image: AttestedImage; state?: Pr
           </span>
         </div>
         <CardBadge image={image} state={state} />
-      </div>
+        <MatIcon
+          name={collapsed ? 'expand_more' : 'expand_less'}
+          size={18}
+          color="var(--ct-fg-5)"
+        />
+      </button>
 
-      {/* digest */}
-      {hex && (
-        <InfoRow label="Digest" value={`sha256:${truncHash(hex, 10, 8)}`} copyText={image.digest} />
-      )}
+      {!collapsed && (
+        <>
+          {/* digest */}
+          {hex && (
+            <InfoRow
+              label="Digest"
+              value={`sha256:${truncHash(hex, 10, 8)}`}
+              copyText={image.digest}
+            />
+          )}
 
-      {/* provenance / states */}
-      {provenance && <ProvenanceLinks provenance={provenance} />}
+          {/* provenance / states */}
+          {provenance && <ProvenanceLinks provenance={provenance} />}
 
-      {image.verifiability === 'third-party' && (
-        <p
-          style={{
-            font: '400 12px/18px var(--ct-font-ui)',
-            color: 'var(--ct-fg-5)',
-            margin: 0,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-          }}
-        >
-          <MatIcon name="info" size={14} />
-          External image — no iExec SLSA attestation to verify.
-        </p>
-      )}
+          {image.verifiability === 'third-party' && (
+            <p
+              style={{
+                font: '400 12px/18px var(--ct-font-ui)',
+                color: 'var(--ct-fg-5)',
+                margin: 0,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              <MatIcon name="info" size={14} />
+              External image — no iExec SLSA attestation to verify.
+            </p>
+          )}
 
-      {error && (
-        <p
-          style={{
-            font: '500 12px/18px var(--ct-font-mono)',
-            color: '#FCA5A5',
-            margin: 0,
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 6,
-          }}
-        >
-          <MatIcon name="error" size={14} style={{ flexShrink: 0, marginTop: 2 }} />
-          {error}
-        </p>
+          {error && (
+            <p
+              style={{
+                font: '500 12px/18px var(--ct-font-mono)',
+                color: '#FCA5A5',
+                margin: 0,
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 6,
+              }}
+            >
+              <MatIcon name="error" size={14} style={{ flexShrink: 0, marginTop: 2 }} />
+              {error}
+            </p>
+          )}
+        </>
       )}
     </div>
   )
 }
 
 /**
- * Supply-chain section: lists every image (and iexec-sidecar) in the attested
- * docker-compose and, per image, verifies and shows its SLSA attestation,
- * Rekor record, source repo:commit and build workflow.
+ * Component list: one collapsible card per image (or iexec-sidecar) in the
+ * attested docker-compose, each showing its SLSA attestation, Rekor record,
+ * source repo:commit and build workflow. Pure rendering — `images`/`states`
+ * come from `useWorkloadImages` so the parent section can also read them to
+ * render an at-a-glance summary.
  */
-export function ImageAttestations({ composeContent }: Readonly<{ composeContent: string }>) {
-  const images = useMemo(() => extractComposeImages(composeContent), [composeContent])
-  const [states, setStates] = useState<Record<string, ProvenanceState>>({})
-  const [collapsed, setCollapsed] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-    // No initial setState here (a missing entry already renders as "verifying");
-    // we only record results as they resolve, off the synchronous effect path.
-    for (const img of images) {
-      if (img.verifiability !== 'verifiable') continue
-      fetchImageProvenance(img).then((result) => {
-        if (cancelled) return
-        setStates((prev) => ({ ...prev, [stateKey(img)]: { status: 'done', result } }))
-      })
-    }
-
-    return () => {
-      cancelled = true
-    }
-  }, [images])
-
+export function ImageAttestations({
+  images,
+  states,
+}: Readonly<{ images: AttestedImage[]; states: Record<string, ProvenanceState> }>) {
   if (images.length === 0) return null
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 12,
-        padding: 16,
-        borderRadius: 16,
-        background: 'var(--ct-surface-1, rgba(255,255,255,0.015))',
-        border: '1px solid rgba(255,255,255,0.06)',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <MatIcon name="account_tree" size={16} style={{ color: 'var(--ct-brand)' }} />
-        <Eyebrow>Supply chain · {images.length} images</Eyebrow>
-        <div style={{ flex: 1 }} />
-        <button
-          type="button"
-          onClick={() => setCollapsed((c) => !c)}
-          aria-expanded={!collapsed}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 4,
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            color: 'var(--ct-fg-4)',
-            font: '600 12px/1 var(--ct-font-ui)',
-            padding: '2px 0',
-          }}
-        >
-          {collapsed ? 'Expand' : 'Collapse'}
-          <MatIcon name={collapsed ? 'expand_more' : 'expand_less'} size={16} />
-        </button>
-      </div>
-      {!collapsed && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {images.map((img) => (
-            <ImageCard key={imageKey(img)} image={img} state={states[stateKey(img)]} />
-          ))}
-        </div>
-      )}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {images.map((img) => (
+        <ImageCard key={imageKey(img)} image={img} state={states[stateKey(img)]} />
+      ))}
     </div>
   )
 }
