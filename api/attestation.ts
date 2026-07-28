@@ -30,7 +30,7 @@ interface AttestationRequestBody {
   signingRepo?: unknown
 }
 
-export default async function handler(request: Request): Promise<Response> {
+async function handler(request: Request): Promise<Response> {
   if (request.method !== 'POST') {
     return Response.json({ error: 'Method not allowed' }, { status: 405 })
   }
@@ -71,3 +71,11 @@ export default async function handler(request: Request): Promise<Response> {
     )
   }
 }
+
+// Vercel's Node.js runtime (unlike its edge runtime) only recognizes the Web
+// fetch-style handler through this `{ fetch }` object shape or named HTTP-method
+// exports (e.g. `export function POST`) — a bare `export default function`, which
+// works fine under runtime: 'edge', is silently treated as the legacy Node
+// `(req, res) => void` signature here, so our returned Response is discarded and
+// the request hangs until Vercel's own function timeout.
+export default { fetch: handler }
