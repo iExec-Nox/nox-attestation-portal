@@ -1,5 +1,3 @@
-import type { ResolvedImageAttestation } from '../config/image-attestation-map.ts'
-
 export interface InstanceInfo {
   instance_id: string
   machine_id: string
@@ -13,58 +11,6 @@ export interface CvmInfo {
   app_id: string
   name: string
   instances: InstanceInfo[]
-}
-
-/** Whether an image can be SLSA-verified (mapped) or is an external image. */
-export type ImageVerifiability = 'verifiable' | 'third-party'
-
-/**
- * SLSA provenance extracted from a verified attestation — the chain-of-trust
- * links shown per image. All fields are `null` when the attestation payload
- * does not carry them.
- */
-export interface SlsaProvenance {
-  /** Verified image digest, "sha256:…". */
-  image: string
-  /** Source repo in `owner/name` form. */
-  sourceRepo: string | null
-  /** Source commit sha. */
-  commit: string | null
-  /** GitHub tree URL pinned at the source commit. */
-  commitUrl: string | null
-  /** Triggering workflow file URL, pinned at the source commit. */
-  workflowUrl: string | null
-  /** Builder / reusable workflow URL. */
-  builderUrl: string | null
-  /** Sigstore/Rekor transparency-log search URL for this digest. */
-  rekorUrl: string
-  /** GitHub attestation page URL. */
-  attestationUrl: string
-  /** Trigger event name (e.g. "push"). */
-  trigger: string | null
-}
-
-/** Result of a SLSA verification attempt for one image. */
-export type CheckSlsaResult =
-  | { verified: true; provenance: SlsaProvenance }
-  | { verified: false; error: string }
-
-/** A container image referenced by a service in the attested docker-compose. */
-export interface AttestedImage {
-  /** Compose service name, e.g. "nox-kms", "quote-service". */
-  service: string
-  /** Full image reference as written in the compose (with tag and/or digest). */
-  ref: string
-  /** Normalized registry path without tag/digest — the mapping key. */
-  registryPath: string
-  /** Tag if present (usually absent: NOX images are digest-pinned). */
-  tag?: string
-  /** sha256 digest (e.g. "sha256:abc…"), when the image is digest-pinned. */
-  digest?: string
-  /** `verifiable` when covered by the mapping, else `third-party`. */
-  verifiability: ImageVerifiability
-  /** Attestation repos to verify against, present when `verifiable`. */
-  attestation?: ResolvedImageAttestation
 }
 
 export interface EventLogEntry {
