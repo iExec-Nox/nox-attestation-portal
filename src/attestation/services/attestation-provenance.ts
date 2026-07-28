@@ -25,11 +25,16 @@ export function fetchImageProvenance(image: AttestedImage): Promise<CheckSlsaRes
   if (image.verifiability !== 'verifiable' || !image.attestation) {
     return Promise.resolve({
       verified: false,
+      reason: 'verification-failed',
       error: 'Image not covered by the attestation mapping',
     })
   }
   if (!image.digest) {
-    return Promise.resolve({ verified: false, error: 'Image is not digest-pinned' })
+    return Promise.resolve({
+      verified: false,
+      reason: 'verification-failed',
+      error: 'Image is not digest-pinned',
+    })
   }
 
   const { attestationRepo, signingRepo } = image.attestation
@@ -74,16 +79,21 @@ async function requestProvenance(
         data && 'error' in data && typeof data.error === 'string'
           ? data.error
           : `HTTP ${res.status}`
-      return { verified: false, error: message }
+      return { verified: false, reason: 'request-failed', error: message }
     }
     if (!data || typeof (data as CheckSlsaResult).verified !== 'boolean') {
-      return { verified: false, error: 'Malformed response from attestation endpoint' }
+      return {
+        verified: false,
+        reason: 'request-failed',
+        error: 'Malformed response from attestation endpoint',
+      }
     }
     return data as CheckSlsaResult
   } catch (e) {
     const timedOut = e instanceof Error && e.name === 'AbortError'
     return {
       verified: false,
+      reason: 'request-failed',
       error: timedOut ? 'Verification timed out' : 'Verification request failed',
     }
   }

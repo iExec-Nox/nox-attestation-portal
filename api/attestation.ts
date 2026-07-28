@@ -66,7 +66,7 @@ async function handler(request: Request): Promise<Response> {
     return Response.json(result, { status: 200 })
   } catch (e) {
     return Response.json(
-      { verified: false, error: `Verification crashed: ${(e as Error).message}` },
+      { verified: false, reason: 'request-failed', error: `Verification crashed: ${(e as Error).message}` },
       { status: 500 },
     )
   }

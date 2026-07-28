@@ -169,8 +169,14 @@ function ProvenanceLinks({ provenance }: Readonly<{ provenance: SlsaProvenance }
   )
 }
 
-/* ── Small neutral pill for the third-party badge ── */
-function ThirdPartyBadge() {
+/* ── Small status pill, for the states StatusBadge doesn't cover ── */
+function Pill({
+  label,
+  icon,
+  fg,
+  bg,
+  border,
+}: Readonly<{ label: string; icon: string; fg: string; bg: string; border: string }>) {
   return (
     <span
       style={{
@@ -179,25 +185,96 @@ function ThirdPartyBadge() {
         gap: 6,
         padding: '3px 9px',
         borderRadius: 9999,
-        background: 'rgba(255,255,255,0.04)',
-        border: '1px solid rgba(255,255,255,0.12)',
-        color: 'var(--ct-fg-4)',
+        background: bg,
+        border: `1px solid ${border}`,
+        color: fg,
         font: '700 11px/1 var(--ct-font-ui)',
         letterSpacing: '0.4px',
         textTransform: 'uppercase',
         whiteSpace: 'nowrap',
       }}
     >
-      <MatIcon name="public" size={12} />
-      Third-party
+      <MatIcon name={icon} size={12} />
+      {label}
     </span>
   )
 }
 
+const THIRDPARTY_PILL = {
+  fg: 'var(--ct-fg-4)',
+  bg: 'rgba(255,255,255,0.04)',
+  border: 'rgba(255,255,255,0.12)',
+}
+const TAGPIN_PILL = { fg: '#FDBA74', bg: 'rgba(251,146,60,0.12)', border: 'rgba(251,146,60,0.32)' }
+const NOATT_PILL = { fg: '#FCD34D', bg: 'rgba(234,179,8,0.12)', border: 'rgba(234,179,8,0.30)' }
+
 function CardBadge({ image, state }: Readonly<{ image: AttestedImage; state?: ProvenanceState }>) {
-  if (image.verifiability === 'third-party') return <ThirdPartyBadge />
+  if (image.verifiability === 'third-party')
+    return <Pill label="Third-party" icon="public" {...THIRDPARTY_PILL} />
+  if (image.verifiability === 'tag-pin')
+    return <Pill label="Tag pin" icon="sell" {...TAGPIN_PILL} />
+
+  // verifiable → the badge follows the async verification result
   if (!state || state.status === 'verifying') return <StatusBadge status="verifying" />
-  return <StatusBadge status={state.result.verified ? 'verified' : 'failed'} />
+  const result = state.result
+  if (result.verified) return <StatusBadge status="verified" />
+  if (result.reason === 'no-attestation')
+    return <Pill label="No attestation" icon="gpp_maybe" {...NOATT_PILL} />
+  return <StatusBadge status="failed" />
+}
+
+/* ── Explanatory note under a card, for non-verified states ── */
+function Note({
+  icon,
+  color,
+  mono,
+  children,
+}: Readonly<{ icon: string; color: string; mono?: boolean; children: string }>) {
+  return (
+    <p
+      style={{
+        font: `${mono ? 500 : 400} 12px/18px var(--ct-font-${mono ? 'mono' : 'ui'})`,
+        color,
+        margin: 0,
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 6,
+      }}
+    >
+      <MatIcon name={icon} size={14} style={{ flexShrink: 0, marginTop: 2 }} />
+      <span>{children}</span>
+    </p>
+  )
+}
+
+function CardNote({
+  image,
+  result,
+}: Readonly<{ image: AttestedImage; result: CheckSlsaResult | null }>) {
+  if (image.verifiability === 'third-party')
+    return (
+      <Note icon="public" color="var(--ct-fg-5)">
+        External image — no iExec SLSA attestation to verify.
+      </Note>
+    )
+  if (image.verifiability === 'tag-pin')
+    return (
+      <Note icon="sell" color="#FDBA74">
+        {`Pinned by tag${image.tag ? ` (${image.tag})` : ''}, not by digest — a sha256 pin is required to verify SLSA provenance.`}
+      </Note>
+    )
+  if (!result || result.verified) return null
+  if (result.reason === 'no-attestation')
+    return (
+      <Note icon="gpp_maybe" color="#FCD34D">
+        No SLSA attestation found for this digest — the image may be unsigned.
+      </Note>
+    )
+  return (
+    <Note icon="error" color="#FCA5A5" mono>
+      {result.error}
+    </Note>
+  )
 }
 
 /* ── One image card (collapsible) ── */
@@ -206,7 +283,6 @@ function ImageCard({ image, state }: Readonly<{ image: AttestedImage; state?: Pr
   const hex = image.digest?.replace(/^sha256:/, '')
   const result = state?.status === 'done' ? state.result : null
   const provenance = result?.verified ? result.provenance : null
-  const error = result && !result.verified ? result.error : null
 
   return (
     <div
@@ -290,7 +366,6 @@ function ImageCard({ image, state }: Readonly<{ image: AttestedImage; state?: Pr
 
       {!collapsed && (
         <>
-          {/* digest */}
           {hex && (
             <InfoRow
               label="Digest"
@@ -299,40 +374,9 @@ function ImageCard({ image, state }: Readonly<{ image: AttestedImage; state?: Pr
             />
           )}
 
-          {/* provenance / states */}
           {provenance && <ProvenanceLinks provenance={provenance} />}
 
-          {image.verifiability === 'third-party' && (
-            <p
-              style={{
-                font: '400 12px/18px var(--ct-font-ui)',
-                color: 'var(--ct-fg-5)',
-                margin: 0,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
-            >
-              <MatIcon name="info" size={14} />
-              External image — no iExec SLSA attestation to verify.
-            </p>
-          )}
-
-          {error && (
-            <p
-              style={{
-                font: '500 12px/18px var(--ct-font-mono)',
-                color: '#FCA5A5',
-                margin: 0,
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: 6,
-              }}
-            >
-              <MatIcon name="error" size={14} style={{ flexShrink: 0, marginTop: 2 }} />
-              {error}
-            </p>
-          )}
+          <CardNote image={image} result={result} />
         </>
       )}
     </div>

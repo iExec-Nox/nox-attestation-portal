@@ -15,8 +15,13 @@ export interface CvmInfo {
   instances: InstanceInfo[]
 }
 
-/** Whether an image can be SLSA-verified (mapped) or is an external image. */
-export type ImageVerifiability = 'verifiable' | 'third-party'
+/**
+ * Extraction-time classification of a compose image:
+ * - `verifiable`: in the attestation mapping AND digest-pinned → can be checked.
+ * - `tag-pin`: in the mapping but referenced by a tag, not a sha256 digest.
+ * - `third-party`: not in the attestation mapping (external image).
+ */
+export type ImageVerifiability = 'verifiable' | 'tag-pin' | 'third-party'
 
 /**
  * SLSA provenance extracted from a verified attestation — the chain-of-trust
@@ -44,10 +49,16 @@ export interface SlsaProvenance {
   trigger: string | null
 }
 
+/** Why a SLSA verification did not succeed. */
+export type SlsaFailureReason =
+  | 'no-attestation' // no attestation found on GitHub for this digest (unsigned image?)
+  | 'verification-failed' // an attestation exists but failed a crypto/identity/binding check
+  | 'request-failed' // could not complete the request (network, timeout, bad input)
+
 /** Result of a SLSA verification attempt for one image. */
 export type CheckSlsaResult =
   | { verified: true; provenance: SlsaProvenance }
-  | { verified: false; error: string }
+  | { verified: false; reason: SlsaFailureReason; error: string }
 
 /** A container image referenced by a service in the attested docker-compose. */
 export interface AttestedImage {
@@ -61,7 +72,7 @@ export interface AttestedImage {
   tag?: string
   /** sha256 digest (e.g. "sha256:abc…"), when the image is digest-pinned. */
   digest?: string
-  /** `verifiable` when covered by the mapping, else `third-party`. */
+  /** Classification: `verifiable`, `tag-pin`, or `third-party` (see ImageVerifiability). */
   verifiability: ImageVerifiability
   /** Attestation repos to verify against, present when `verifiable`. */
   attestation?: ResolvedImageAttestation

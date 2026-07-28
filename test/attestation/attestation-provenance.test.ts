@@ -37,7 +37,7 @@ afterEach(() => {
 })
 
 describe('fetchImageProvenance', () => {
-  it('short-circuits third-party images without any network call', async () => {
+  it('short-circuits non-verifiable images without any network call', async () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
 
@@ -56,7 +56,11 @@ describe('fetchImageProvenance', () => {
     const result = await fetchImageProvenance(verifiableImage({ digest: undefined }))
 
     expect(fetchMock).not.toHaveBeenCalled()
-    expect(result).toEqual({ verified: false, error: 'Image is not digest-pinned' })
+    expect(result).toEqual({
+      verified: false,
+      reason: 'verification-failed',
+      error: 'Image is not digest-pinned',
+    })
   })
 
   it('posts repos+digest and returns the verified provenance', async () => {
@@ -114,6 +118,14 @@ describe('fetchImageProvenance', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
+  it('passes through a no-attestation result from the endpoint', async () => {
+    const body = { verified: false, reason: 'no-attestation', error: 'No attestation found' }
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => body })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(fetchImageProvenance(verifiableImage())).resolves.toEqual(body)
+  })
+
   it('surfaces the endpoint error message on a non-OK response', async () => {
     const fetchMock = vi
       .fn()
@@ -122,6 +134,7 @@ describe('fetchImageProvenance', () => {
 
     await expect(fetchImageProvenance(verifiableImage())).resolves.toEqual({
       verified: false,
+      reason: 'request-failed',
       error: 'upstream down',
     })
   })
@@ -131,6 +144,7 @@ describe('fetchImageProvenance', () => {
 
     await expect(fetchImageProvenance(verifiableImage())).resolves.toEqual({
       verified: false,
+      reason: 'request-failed',
       error: 'Verification request failed',
     })
   })
@@ -162,6 +176,10 @@ describe('fetchImageProvenance', () => {
     const promise = fetchImageProvenance(verifiableImage())
     await vi.advanceTimersByTimeAsync(30000)
 
-    await expect(promise).resolves.toEqual({ verified: false, error: 'Verification timed out' })
+    await expect(promise).resolves.toEqual({
+      verified: false,
+      reason: 'request-failed',
+      error: 'Verification timed out',
+    })
   })
 })

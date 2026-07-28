@@ -34,15 +34,16 @@ function WorkloadStats({
   let verified = 0
   let failed = 0
   let pending = 0
-  let thirdParty = 0
+  let other = 0 // third-party, tag-pinned or no-attestation: not attested, but not a hard failure
   for (const img of images) {
-    if (img.verifiability === 'third-party') {
-      thirdParty++
+    if (img.verifiability !== 'verifiable') {
+      other++
       continue
     }
     const s = states[stateKey(img)]
     if (!s || s.status === 'verifying') pending++
     else if (s.result.verified) verified++
+    else if (s.result.reason === 'no-attestation') other++
     else failed++
   }
 
@@ -66,11 +67,9 @@ function WorkloadStats({
     )
   }
 
-  const verifiableTotal = verified
   const parts: string[] = []
-  if (verifiableTotal > 0)
-    parts.push(`${verifiableTotal} image${verifiableTotal > 1 ? 's' : ''} attested`)
-  if (thirdParty > 0) parts.push(`${thirdParty} third-party`)
+  if (verified > 0) parts.push(`${verified} image${verified > 1 ? 's' : ''} attested`)
+  if (other > 0) parts.push(`${other} not attested`)
 
   return (
     <span

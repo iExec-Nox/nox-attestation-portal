@@ -1,10 +1,10 @@
 import { resolveImageAttestation } from '../config/image-attestation-map.ts'
-import type { AttestedImage } from '../types/index.ts'
+import type { AttestedImage, ImageVerifiability } from '../types/index.ts'
 
 /**
  * Extracts the container images (one per compose service) from an attested
- * docker-compose manifest, and classifies each as `verifiable` or
- * `third-party` using the static attestation mapping.
+ * docker-compose manifest, and classifies each as `verifiable`, `tag-pin`
+ * (mapped but not digest-pinned) or `third-party` (not in the mapping).
  *
  * The compose is parsed line-by-line (no YAML dependency, consistent with the
  * rest of the app). NOX images are digest-pinned (`image: repo@sha256:…`), so
@@ -107,13 +107,17 @@ export function extractComposeImages(composeContent: string): AttestedImage[] {
       const ref = imageMatch[1]
       const { registryPath, tag, digest } = parseImageRef(ref)
       const resolved = resolveImageAttestation(registryPath)
+      let verifiability: ImageVerifiability
+      if (!resolved) verifiability = 'third-party'
+      else if (!digest) verifiability = 'tag-pin'
+      else verifiability = 'verifiable'
       images.push({
         service: currentService,
         ref,
         registryPath,
         tag,
         digest,
-        verifiability: resolved ? 'verifiable' : 'third-party',
+        verifiability,
         attestation: resolved ?? undefined,
       })
     }

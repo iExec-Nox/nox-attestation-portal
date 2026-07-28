@@ -94,6 +94,16 @@ describe('extractComposeImages', () => {
     expect(fluent?.attestation).toBeUndefined()
   })
 
+  it('classifies a mapped image referenced by tag (no digest) as tag-pin', () => {
+    const yaml = 'services:\n  nox-kms:\n    image: docker-regis.iex.ec/nox-kms:1.2.3\n'
+    const [img] = extractComposeImages(yaml)
+    expect(img.verifiability).toBe('tag-pin')
+    expect(img.tag).toBe('1.2.3')
+    expect(img.digest).toBeUndefined()
+    // repos still resolve (it IS in the mapping); it just can't be verified without a digest
+    expect(img.attestation?.attestationRepo).toBe('iExec-Nox/nox-kms')
+  })
+
   it('does not parse image-looking lines outside the services block', () => {
     const images = extractComposeImages(COMPOSE_YAML)
     expect(images).toHaveLength(3)

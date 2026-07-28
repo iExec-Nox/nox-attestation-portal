@@ -18,7 +18,11 @@ import { X509Certificate } from 'node:crypto'
 import type { Bundle } from 'sigstore'
 import { verify } from 'sigstore'
 
-import type { CheckSlsaResult, SlsaProvenance } from '../../src/attestation/types/index.ts'
+import type {
+  CheckSlsaResult,
+  SlsaFailureReason,
+  SlsaProvenance,
+} from '../../src/attestation/types/index.ts'
 
 // GitHub Actions keyless OIDC issuer (SLSA v1).
 const ISSUER = 'https://token.actions.githubusercontent.com'
@@ -59,8 +63,8 @@ interface GithubAttestation {
 
 const REPO_RE = /^[^/]+\/[^/]+$/
 
-function fail(error: string): CheckSlsaResult {
-  return { verified: false, error }
+function fail(reason: SlsaFailureReason, error: string): CheckSlsaResult {
+  return { verified: false, reason, error }
 }
 
 /** Escapes regex metacharacters so untrusted input can't alter a RegExp's meaning. */
@@ -87,15 +91,15 @@ export async function checkSlsa(input: CheckSlsaInput): Promise<CheckSlsaResult>
   const { attestationRepo, signingRepo, token } = input
 
   if (!REPO_RE.test(attestationRepo)) {
-    return fail(`Invalid attestationRepo, expected 'owner/name': ${attestationRepo}`)
+    return fail('verification-failed', `Invalid attestationRepo, expected 'owner/name': ${attestationRepo}`)
   }
   if (!REPO_RE.test(signingRepo)) {
-    return fail(`Invalid signingRepo, expected 'owner/name': ${signingRepo}`)
+    return fail('verification-failed', `Invalid signingRepo, expected 'owner/name': ${signingRepo}`)
   }
 
   const D = input.digest.replace(/^sha256:/, '')
   if (!/^[a-f0-9]{64}$/.test(D)) {
-    return fail(`Invalid digest, expected 64 hex (sha256): ${input.digest}`)
+    return fail('verification-failed', `Invalid digest, expected 64 hex (sha256): ${input.digest}`)
   }
 
   // --- 1) fetch the bundle from GitHub BY DIGEST (no registry) ---
@@ -113,16 +117,19 @@ export async function checkSlsa(input: CheckSlsaInput): Promise<CheckSlsaResult>
       message?: string
     }
     if (!resp.ok) {
-      return fail(`GitHub API ${resp.status}: ${data.message ?? resp.statusText}`)
+      // 404 means GitHub has no attestation bound to this digest (unsigned image
+      // or wrong repo); any other status is a transient/request problem.
+      const reason: SlsaFailureReason = resp.status === 404 ? 'no-attestation' : 'request-failed'
+      return fail(reason, `GitHub API ${resp.status}: ${data.message ?? resp.statusText}`)
     }
   } catch (e) {
-    return fail(`Failed to reach GitHub: ${(e as Error).message}`)
+    return fail('request-failed', `Failed to reach GitHub: ${(e as Error).message}`)
   }
 
   const attestation = data.attestations?.[0]
   const bundle = attestation?.bundle
   if (!bundle) {
-    return fail(`No attestation found for sha256:${D} in ${attestationRepo}`)
+    return fail('no-attestation', `No attestation found for sha256:${D} in ${attestationRepo}`)
   }
 
   // --- 2) cryptographic verification: signature + Fulcio + Rekor + OIDC issuer ---
@@ -132,7 +139,7 @@ export async function checkSlsa(input: CheckSlsaInput): Promise<CheckSlsaResult>
       tufCachePath: input.tufCachePath,
     })
   } catch (e) {
-    return fail(`Signature verification failed: ${(e as Error).message}`)
+    return fail('verification-failed', `Signature verification failed: ${(e as Error).message}`)
   }
 
   // --- 3) signer identity (cert SAN) against the SIGNING repo ---
@@ -140,11 +147,12 @@ export async function checkSlsa(input: CheckSlsaInput): Promise<CheckSlsaResult>
   try {
     san = certSAN(bundle)
   } catch (e) {
-    return fail((e as Error).message)
+    return fail('verification-failed', (e as Error).message)
   }
   const identityRe = new RegExp(`^URI:https://github\\.com/${escapeRegExp(signingRepo)}/\\.github/workflows/`)
   if (!identityRe.test(san)) {
     return fail(
+      'verification-failed',
       `Signer identity mismatch. expected ^URI:https://github.com/${signingRepo}/.github/workflows/ , got: ${san}`,
     )
   }
@@ -153,7 +161,10 @@ export async function checkSlsa(input: CheckSlsaInput): Promise<CheckSlsaResult>
   const payload = decodePayload(bundle)
   const subject = payload.subject?.find((s) => s.digest?.sha256)?.digest?.sha256
   if (subject !== D) {
-    return fail(`Attestation is bound to a different image: expected ${D}, got ${subject}`)
+    return fail(
+      'verification-failed',
+      `Attestation is bound to a different image: expected ${D}, got ${subject}`,
+    )
   }
 
   // --- 5) extract the source ---
