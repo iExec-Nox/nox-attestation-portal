@@ -74,7 +74,7 @@ export interface AttestedImage {
   digest?: string
   /** Classification: `verifiable`, `tag-pin`, or `third-party` (see ImageVerifiability). */
   verifiability: ImageVerifiability
-  /** Attestation repos to verify against, present when `verifiable`. */
+  /** Attestation repos resolved from the mapping when the image is mapped (`verifiable` or `tag-pin`). */
   attestation?: ResolvedImageAttestation
 }
 
