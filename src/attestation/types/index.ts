@@ -1,3 +1,5 @@
+import type { ResolvedImageAttestation } from '../config/image-attestation-map.ts'
+
 export interface InstanceInfo {
   instance_id: string
   machine_id: string
@@ -11,6 +13,69 @@ export interface CvmInfo {
   app_id: string
   name: string
   instances: InstanceInfo[]
+}
+
+/**
+ * Extraction-time classification of a compose image:
+ * - `verifiable`: in the attestation mapping AND digest-pinned → can be checked.
+ * - `tag-pin`: in the mapping but referenced by a tag, not a sha256 digest.
+ * - `third-party`: not in the attestation mapping (external image).
+ */
+export type ImageVerifiability = 'verifiable' | 'tag-pin' | 'third-party'
+
+/**
+ * SLSA provenance extracted from a verified attestation — the chain-of-trust
+ * links shown per image. All fields are `null` when the attestation payload
+ * does not carry them.
+ */
+export interface SlsaProvenance {
+  /** Verified image digest, "sha256:…". */
+  image: string
+  /** Source repo in `owner/name` form. */
+  sourceRepo: string | null
+  /** Source commit sha. */
+  commit: string | null
+  /** GitHub tree URL pinned at the source commit. */
+  commitUrl: string | null
+  /** Triggering workflow file URL, pinned at the source commit. */
+  workflowUrl: string | null
+  /** Builder / reusable workflow URL. */
+  builderUrl: string | null
+  /** Sigstore/Rekor transparency-log search URL for this digest. */
+  rekorUrl: string
+  /** GitHub attestation page URL. */
+  attestationUrl: string
+  /** Trigger event name (e.g. "push"). */
+  trigger: string | null
+}
+
+/** Why a SLSA verification did not succeed. */
+export type SlsaFailureReason =
+  | 'no-attestation' // no attestation found on GitHub for this digest (unsigned image?)
+  | 'verification-failed' // an attestation exists but failed a crypto/identity/binding check
+  | 'request-failed' // could not complete the request (network, timeout, bad input)
+
+/** Result of a SLSA verification attempt for one image. */
+export type CheckSlsaResult =
+  | { verified: true; provenance: SlsaProvenance }
+  | { verified: false; reason: SlsaFailureReason; error: string }
+
+/** A container image referenced by a service in the attested docker-compose. */
+export interface AttestedImage {
+  /** Compose service name, e.g. "nox-kms", "quote-service". */
+  service: string
+  /** Full image reference as written in the compose (with tag and/or digest). */
+  ref: string
+  /** Normalized registry path without tag/digest — the mapping key. */
+  registryPath: string
+  /** Tag if present (usually absent: NOX images are digest-pinned). */
+  tag?: string
+  /** sha256 digest (e.g. "sha256:abc…"), when the image is digest-pinned. */
+  digest?: string
+  /** Classification: `verifiable`, `tag-pin`, or `third-party` (see ImageVerifiability). */
+  verifiability: ImageVerifiability
+  /** Attestation repos resolved from the mapping when the image is mapped (`verifiable` or `tag-pin`). */
+  attestation?: ResolvedImageAttestation
 }
 
 export interface EventLogEntry {

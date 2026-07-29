@@ -11,7 +11,7 @@ export default async function handler(request: Request): Promise<Response> {
   }
 
   try {
-    const body = await request.json()
+    const body = (await request.json()) as { quote?: unknown }
     const { quote } = body
 
     if (!quote) {
