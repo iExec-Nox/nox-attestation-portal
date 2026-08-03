@@ -6,7 +6,6 @@ import {
   MatIcon,
   PrimaryCTA,
   SecondaryButton,
-  Skeleton,
   Spinner,
   Eyebrow,
   formatAgo,
@@ -331,25 +330,36 @@ export function ComponentSelector({
           ))}
       </div>
 
-      {/* Loading skeletons */}
+      {/* Loading state */}
       {loading && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '2px 2px 4px',
-              font: '500 12px/18px var(--ct-font-ui)',
-              color: 'var(--ct-fg-4)',
-            }}
-          >
-            <Spinner size={13} />
-            Loading NOX components…
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 14,
+            padding: '48px 18px',
+            borderRadius: 16,
+            background: 'rgba(255,255,255,0.025)',
+            border: '1px solid rgba(255,255,255,0.07)',
+          }}
+        >
+          <Spinner size={36} label="Loading NOX components" />
+          <div style={{ textAlign: 'center' }}>
+            <div
+              style={{
+                font: '600 13px/18px var(--ct-font-display)',
+                color: 'var(--ct-fg-2)',
+                marginBottom: 4,
+              }}
+            >
+              Loading NOX components…
+            </div>
+            <div style={{ font: '400 12px/18px var(--ct-font-ui)', color: 'var(--ct-fg-4)' }}>
+              Fetching attestation quotes, this can take a few seconds.
+            </div>
           </div>
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} height={116} radius={16} />
-          ))}
         </div>
       )}
 

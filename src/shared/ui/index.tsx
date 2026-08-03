@@ -79,7 +79,7 @@ export const Spinner = ({
       width: size,
       height: size,
       borderRadius: 9999,
-      border: `2px solid ${track}`,
+      border: `${Math.max(2, Math.round(size / 12))}px solid ${track}`,
       borderTopColor: color,
       animation: 'spin 0.8s linear infinite',
       display: 'inline-block',
