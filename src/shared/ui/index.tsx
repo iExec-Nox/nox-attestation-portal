@@ -60,12 +60,13 @@ export const CopyButton = ({
   )
 }
 
-/* ── Spinner: rotating border-arc loading indicator ── */
+/* ── Spinner: rotating border-arc loading indicator ──
+   Decorative by default; pass `label` when it is the only loading signal. */
 export const Spinner = ({
   size = 14,
   color = 'var(--ct-brand)',
   track = 'rgba(255,255,255,0.15)',
-  label = 'Loading',
+  label,
 }: {
   size?: number
   color?: string
@@ -73,8 +74,9 @@ export const Spinner = ({
   label?: string
 }) => (
   <span
-    role="status"
+    role={label ? 'status' : undefined}
     aria-label={label}
+    aria-hidden={label ? undefined : true}
     style={{
       width: size,
       height: size,
@@ -84,32 +86,6 @@ export const Spinner = ({
       animation: 'spin 0.8s linear infinite',
       display: 'inline-block',
       flexShrink: 0,
-    }}
-  />
-)
-
-/* ── Skeleton: pulsing placeholder while content loads ── */
-export const Skeleton = ({
-  height = 16,
-  width = '100%',
-  radius = 12,
-  style = {},
-}: {
-  height?: number | string
-  width?: number | string
-  radius?: number
-  style?: CSSProperties
-}) => (
-  <div
-    aria-hidden
-    style={{
-      height,
-      width,
-      borderRadius: radius,
-      background: 'rgba(255,255,255,0.05)',
-      border: '1px solid rgba(255,255,255,0.09)',
-      animation: 'badge-pulse 1.5s ease-in-out infinite',
-      ...style,
     }}
   />
 )

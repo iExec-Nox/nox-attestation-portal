@@ -34,20 +34,10 @@ export function useWorkloadImages(composeContent: string) {
     // we only record results as they resolve, off the synchronous effect path.
     for (const img of images) {
       if (img.verifiability !== 'verifiable') continue
-      fetchImageProvenance(img)
-        .catch(
-          (err: unknown): CheckSlsaResult => ({
-            // An unexpected rejection would otherwise leave the card on
-            // "Verifying" forever — degrade it to a visible failure instead.
-            verified: false,
-            reason: 'request-failed',
-            error: err instanceof Error ? err.message : 'Verification request failed',
-          }),
-        )
-        .then((result) => {
-          if (cancelled) return
-          setStates((prev) => ({ ...prev, [stateKey(img)]: { status: 'done', result } }))
-        })
+      fetchImageProvenance(img).then((result) => {
+        if (cancelled) return
+        setStates((prev) => ({ ...prev, [stateKey(img)]: { status: 'done', result } }))
+      })
     }
 
     return () => {

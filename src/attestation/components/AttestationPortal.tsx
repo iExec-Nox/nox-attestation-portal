@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAttestation } from '../hooks/useAttestation.ts'
-import { AttestationVerifier, STEP_DEFINITIONS } from '../services/verifier.ts'
+import { AttestationVerifier, makeInitialSteps } from '../services/verifier.ts'
 import { bytesToHex } from '../../shared/lib/utils.ts'
 import { ComponentSelector } from './ComponentSelector.tsx'
 import { ComponentView } from './ComponentView.tsx'
@@ -219,12 +219,7 @@ export function AttestationPortal() {
               completedAt: Date.now(),
               result: {
                 status: 'failed',
-                steps: STEP_DEFINITIONS.map((s, i) => ({
-                  step: i + 1,
-                  name: s.name,
-                  description: s.description,
-                  status: 'pending' as const,
-                })),
+                steps: makeInitialSteps(),
                 errorMessage: err instanceof Error ? err.message : String(err),
               },
             },

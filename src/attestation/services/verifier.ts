@@ -41,7 +41,7 @@ export const STEP_DEFINITIONS = [
 
 export type StepCallback = (steps: StepResult[]) => void
 
-function makeInitialSteps(): StepResult[] {
+export function makeInitialSteps(): StepResult[] {
   return STEP_DEFINITIONS.map((s, i) => ({
     step: i + 1,
     name: s.name,
