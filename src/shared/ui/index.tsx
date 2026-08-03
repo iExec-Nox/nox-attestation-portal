@@ -60,6 +60,152 @@ export const CopyButton = ({
   )
 }
 
+/* ── Spinner: rotating border-arc loading indicator ── */
+export const Spinner = ({
+  size = 14,
+  color = 'var(--ct-brand)',
+  track = 'rgba(255,255,255,0.15)',
+  label = 'Loading',
+}: {
+  size?: number
+  color?: string
+  track?: string
+  label?: string
+}) => (
+  <span
+    role="status"
+    aria-label={label}
+    style={{
+      width: size,
+      height: size,
+      borderRadius: 9999,
+      border: `2px solid ${track}`,
+      borderTopColor: color,
+      animation: 'spin 0.8s linear infinite',
+      display: 'inline-block',
+      flexShrink: 0,
+    }}
+  />
+)
+
+/* ── Skeleton: pulsing placeholder while content loads ── */
+export const Skeleton = ({
+  height = 16,
+  width = '100%',
+  radius = 12,
+  style = {},
+}: {
+  height?: number | string
+  width?: number | string
+  radius?: number
+  style?: CSSProperties
+}) => (
+  <div
+    aria-hidden
+    style={{
+      height,
+      width,
+      borderRadius: radius,
+      background: 'rgba(255,255,255,0.025)',
+      border: '1px solid rgba(255,255,255,0.07)',
+      animation: 'badge-pulse 1.5s ease-in-out infinite',
+      ...style,
+    }}
+  />
+)
+
+/* ── ErrorState: red card for failed loads, with optional retry ── */
+export const ErrorState = ({
+  title = 'Something went wrong',
+  message,
+  icon = 'error',
+  onRetry,
+  retryLabel = 'Retry',
+}: {
+  title?: string
+  message: string
+  icon?: string
+  onRetry?: () => void
+  retryLabel?: string
+}) => (
+  <div
+    role="alert"
+    style={{
+      padding: '16px 18px',
+      borderRadius: 16,
+      background: 'rgba(248,113,113,0.06)',
+      border: '1px solid rgba(248,113,113,0.20)',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 12,
+    }}
+  >
+    <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+      <div
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: 10,
+          background: 'rgba(248,113,113,0.12)',
+          border: '1px solid rgba(248,113,113,0.25)',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          color: '#F87171',
+        }}
+      >
+        <MatIcon name={icon} size={16} />
+      </div>
+      <div>
+        <div
+          style={{
+            font: '600 13px/18px var(--ct-font-display)',
+            color: '#FCA5A5',
+            marginBottom: 4,
+          }}
+        >
+          {title}
+        </div>
+        <div
+          style={{
+            font: '400 12px/18px var(--ct-font-ui)',
+            color: 'rgba(252,165,165,0.7)',
+            overflowWrap: 'anywhere',
+          }}
+        >
+          {message}
+        </div>
+      </div>
+    </div>
+
+    {onRetry && (
+      <button
+        type="button"
+        onClick={onRetry}
+        style={{
+          alignSelf: 'flex-start',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          height: 30,
+          padding: '0 12px',
+          borderRadius: 8,
+          background: 'rgba(248,113,113,0.10)',
+          border: '1px solid rgba(248,113,113,0.25)',
+          color: '#FCA5A5',
+          font: '600 12px/1 var(--ct-font-display)',
+          cursor: 'pointer',
+          letterSpacing: '0.1px',
+        }}
+      >
+        <MatIcon name="refresh" size={14} />
+        {retryLabel}
+      </button>
+    )}
+  </div>
+)
+
 /* ── Time helpers ── */
 export function formatAgo(ts: number | null | undefined): string {
   if (!ts) return '—'
@@ -360,16 +506,7 @@ export const PrimaryCTA = ({
       }}
     >
       {loading ? (
-        <span
-          style={{
-            width: sz.fs,
-            height: sz.fs,
-            borderRadius: 9999,
-            border: '2px solid rgba(255,255,255,0.4)',
-            borderTopColor: '#fff',
-            animation: 'spin 0.8s linear infinite',
-          }}
-        />
+        <Spinner size={sz.fs} color="#fff" track="rgba(255,255,255,0.4)" />
       ) : (
         icon && <MatIcon name={icon} size={sz.fs + 3} />
       )}
@@ -421,16 +558,7 @@ export const SecondaryButton = ({
       }}
     >
       {loading ? (
-        <span
-          style={{
-            width: sz.fs,
-            height: sz.fs,
-            borderRadius: 9999,
-            border: '2px solid rgba(255,255,255,0.3)',
-            borderTopColor: 'var(--ct-brand)',
-            animation: 'spin 0.8s linear infinite',
-          }}
-        />
+        <Spinner size={sz.fs} track="rgba(255,255,255,0.3)" />
       ) : (
         icon && <MatIcon name={icon} size={sz.fs + 3} />
       )}

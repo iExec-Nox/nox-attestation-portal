@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAttestation } from '../hooks/useAttestation.ts'
-import { AttestationVerifier } from '../services/verifier.ts'
+import { AttestationVerifier, STEP_DEFINITIONS } from '../services/verifier.ts'
 import { bytesToHex } from '../../shared/lib/utils.ts'
 import { ComponentSelector } from './ComponentSelector.tsx'
 import { ComponentView } from './ComponentView.tsx'
@@ -209,8 +209,26 @@ export function AttestationPortal() {
               result: attestResult,
             },
           }))
-        } catch {
-          // unexpected throw (e.g. JSON.parse error) — cleanup still runs below
+        } catch (err) {
+          // Unexpected throw (e.g. JSON.parse error) — record a failed result so
+          // the instance shows the error instead of silently reverting to pending.
+          setHistory((prev) => ({
+            ...prev,
+            [instance.instance_id]: {
+              status: 'failed',
+              completedAt: Date.now(),
+              result: {
+                status: 'failed',
+                steps: STEP_DEFINITIONS.map((s, i) => ({
+                  step: i + 1,
+                  name: s.name,
+                  description: s.description,
+                  status: 'pending' as const,
+                })),
+                errorMessage: err instanceof Error ? err.message : String(err),
+              },
+            },
+          }))
         } finally {
           setBgProgress((prev) => {
             const next = { ...prev }
