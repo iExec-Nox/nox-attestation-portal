@@ -106,8 +106,8 @@ export const Skeleton = ({
       height,
       width,
       borderRadius: radius,
-      background: 'rgba(255,255,255,0.025)',
-      border: '1px solid rgba(255,255,255,0.07)',
+      background: 'rgba(255,255,255,0.05)',
+      border: '1px solid rgba(255,255,255,0.09)',
       animation: 'badge-pulse 1.5s ease-in-out infinite',
       ...style,
     }}

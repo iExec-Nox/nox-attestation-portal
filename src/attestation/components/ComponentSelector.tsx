@@ -7,6 +7,7 @@ import {
   PrimaryCTA,
   SecondaryButton,
   Skeleton,
+  Spinner,
   Eyebrow,
   formatAgo,
   getComponentIcon,
@@ -333,6 +334,19 @@ export function ComponentSelector({
       {/* Loading skeletons */}
       {loading && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '2px 2px 4px',
+              font: '500 12px/18px var(--ct-font-ui)',
+              color: 'var(--ct-fg-4)',
+            }}
+          >
+            <Spinner size={13} />
+            Loading NOX components…
+          </div>
           {[1, 2, 3].map((i) => (
             <Skeleton key={i} height={116} radius={16} />
           ))}
