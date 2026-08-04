@@ -69,7 +69,6 @@ function WorkloadStats({
 
   const parts: string[] = []
   if (verified > 0) parts.push(`${verified} image${verified > 1 ? 's' : ''} attested`)
-  if (other > 0) parts.push(`${other} not attested`)
 
   return (
     <span
