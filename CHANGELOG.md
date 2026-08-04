@@ -1,5 +1,47 @@
 # Changelog
 
+## [1.1.0-beta.3](https://github.com/iExec-Nox/nox-attestation-portal/compare/v1.1.0-beta.2...v1.1.0-beta.3) (2026-08-04)
+
+
+### 🚀 Added
+
+* add slsa attestation ([de2315b](https://github.com/iExec-Nox/nox-attestation-portal/commit/de2315b08e4e896d156457747d843b24fc99643f))
+* **attestation:** add check-slsa provenance verifier module ([5289903](https://github.com/iExec-Nox/nox-attestation-portal/commit/5289903b58004c62b6b424efc63d2da3deb36592))
+* **attestation:** add image-to-slsa-repo mapping config ([362ded5](https://github.com/iExec-Nox/nox-attestation-portal/commit/362ded563dc129d05602191b8770fad9822392f2))
+* **attestation:** add node endpoint for slsa verification ([0c7be00](https://github.com/iExec-Nox/nox-attestation-portal/commit/0c7be0097d1d1c8e2bd29e02f9db701bb24ae7ae))
+* **attestation:** add provenance client with per-digest dedup cache ([f12c4ed](https://github.com/iExec-Nox/nox-attestation-portal/commit/f12c4ed43c0c11dfb7ee77926119f9c308423766))
+* **attestation:** distinguish third-party, tag-pin and no-attestation image states ([cefea0e](https://github.com/iExec-Nox/nox-attestation-portal/commit/cefea0ed7643598f06f20bb6d909a558072b0982))
+* **attestation:** extract and classify docker-compose images ([b4d5624](https://github.com/iExec-Nox/nox-attestation-portal/commit/b4d56244ac867e98779fb49b5e3548c0aec41b0b))
+* **attestation:** make supply-chain section collapsible ([aaf941f](https://github.com/iExec-Nox/nox-attestation-portal/commit/aaf941fa5f3841905126a0269a5f8d7510578a1c))
+* **attestation:** re-add SLSA image attestation + display (fixed) ([e9e7aa2](https://github.com/iExec-Nox/nox-attestation-portal/commit/e9e7aa2abb9805c3b384ed64420d50e6a51124d0))
+* **attestation:** re-add SLSA image attestation + display (from PR [#21](https://github.com/iExec-Nox/nox-attestation-portal/issues/21)) ([05e3741](https://github.com/iExec-Nox/nox-attestation-portal/commit/05e37410ed0662e399931c181c836b02c4351d8a))
+* **attestation:** serve slsa verification via vite dev middleware ([6cd2e6e](https://github.com/iExec-Nox/nox-attestation-portal/commit/6cd2e6e61fe8f8677c02d19cbc1dfaccaadd66f5))
+* **attestation:** show per-image slsa chain-of-trust in report ([73f2ede](https://github.com/iExec-Nox/nox-attestation-portal/commit/73f2ede1c3bad68db185306fd803262172994e46))
+* loading error states ([abbad60](https://github.com/iExec-Nox/nox-attestation-portal/commit/abbad6000dca822266e166631c428af374555fee))
+* **ui:** add shared loading/error primitives and surface silent failures ([3f4ae49](https://github.com/iExec-Nox/nox-attestation-portal/commit/3f4ae4948438d92fb373842967cfa0a00474b1c3))
+* **ui:** make sidebar loading state explicit ([8fd8944](https://github.com/iExec-Nox/nox-attestation-portal/commit/8fd89447f6c6f9457373f8365011b29fa770aea4))
+* **ui:** replace sidebar skeletons with a prominent centered loader ([6a7fb35](https://github.com/iExec-Nox/nox-attestation-portal/commit/6a7fb35a1099957987161000cdb1e56353720f29))
+
+
+### ✍️ Changed
+
+* **attestation:** build api function as commonjs for sigstore ([b30f138](https://github.com/iExec-Nox/nox-attestation-portal/commit/b30f13854fc2aa9eb88bf3cc38048d1a92546e8e))
+* **attestation:** clarify workflow row labels in supply chain ([792bb20](https://github.com/iExec-Nox/nox-attestation-portal/commit/792bb20a46a17e3f20d947e80ca8c633c8d83908))
+* **attestation:** export { fetch: handler }, not a bare default function ([e1ec77f](https://github.com/iExec-Nox/nox-attestation-portal/commit/e1ec77f6e7dff4bfef4233aff643967eaaaeb805))
+* **attestation:** merge compose manifest and images into attested workload section ([ccd8804](https://github.com/iExec-Nox/nox-attestation-portal/commit/ccd88047f72777a45a00630b9a7ddbf161da4f55))
+* **attestation:** use .js extension for check-slsa import (real root cause) ([8fc2313](https://github.com/iExec-Nox/nox-attestation-portal/commit/8fc23131f3383d3f3386b1ddefe9a4919646c925))
+* correct comment ([e3c95aa](https://github.com/iExec-Nox/nox-attestation-portal/commit/e3c95aac55b8ad0e309148716404c2d5534dad94))
+* remove .vercel ([ff4e535](https://github.com/iExec-Nox/nox-attestation-portal/commit/ff4e53530bfcb671523f41755606789bb8c38bbc))
+* SLSA attestation (PR [#21](https://github.com/iExec-Nox/nox-attestation-portal/issues/21)) — breaks production ([ca819fc](https://github.com/iExec-Nox/nox-attestation-portal/commit/ca819fc9cbfea64a611e72d4e61a43701c97eea4))
+* split shared/ui/index.tsx into one file per component ([1117401](https://github.com/iExec-Nox/nox-attestation-portal/commit/111740133141a68b5aa0df5810483376398da74f))
+* **ui:** address Copilot review — truncHash/formatAgo edge cases, clipboard failure, disabled-vs-loading styling, StepStatusIcon typing ([c4a3fa4](https://github.com/iExec-Nox/nox-attestation-portal/commit/c4a3fa4878fcb7906d4de807a4002a7fdc5d4980))
+* **ui:** simplify per review — drop dead code, dedupe step init ([bfb4fab](https://github.com/iExec-Nox/nox-attestation-portal/commit/bfb4fab1f33e691adb5570bb40a092ee59fc087c))
+
+
+### 📋 Misc
+
+* **attestation:** cover image extraction and provenance client ([cdbe9ce](https://github.com/iExec-Nox/nox-attestation-portal/commit/cdbe9ce7ca6de83d829d5f52ecd2481200fa1c3d))
+
 ## [1.1.0-beta.2](https://github.com/iExec-Nox/nox-attestation-portal/compare/v1.1.0-beta.1...v1.1.0-beta.2) (2026-07-22)
 
 
