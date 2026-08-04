@@ -13,9 +13,13 @@ export const CopyButton = ({
 }) => {
   const [copied, setCopied] = useState(false)
   const copy = () => {
-    navigator.clipboard.writeText(text).catch(() => {})
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1100)
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        setCopied(true)
+        setTimeout(() => setCopied(false), 1100)
+      })
+      .catch(() => {})
   }
   const suffix = label ? ` ${label}` : ''
   const ariaLabel = copied ? `Copied${suffix}` : `Copy${suffix}`

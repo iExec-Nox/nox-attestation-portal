@@ -1,8 +1,9 @@
 import { MatIcon } from './MatIcon.tsx'
+import type { Status } from './StatusBadge.tsx'
 
 /* ── StepStatusIcon ── */
 const STEP_STATUS_MAP: Record<
-  string,
+  Status,
   { bg: string; border: string; color: string; icon: string; scale: number }
 > = {
   verified: {
@@ -35,7 +36,7 @@ const STEP_STATUS_MAP: Record<
   },
 }
 
-export const StepStatusIcon = ({ status, size = 28 }: { status: string; size?: number }) => {
+export const StepStatusIcon = ({ status, size = 28 }: { status: Status; size?: number }) => {
   const s = STEP_STATUS_MAP[status] ?? STEP_STATUS_MAP.pending
   return (
     <span

@@ -1,6 +1,6 @@
 /* ── Time helpers ── */
 export function formatAgo(ts: number | null | undefined): string {
-  if (!ts) return '—'
+  if (ts == null || Number.isNaN(ts)) return '—'
   const diff = Date.now() - ts
   const s = Math.floor(diff / 1000)
   if (s < 5) return 'Just now'
@@ -14,6 +14,6 @@ export function formatAgo(ts: number | null | undefined): string {
 
 export function truncHash(h: string | undefined, head = 6, tail = 4): string {
   if (!h) return ''
-  if (h.length <= head + tail + 2) return h
-  return h.slice(0, head + 2) + '…' + h.slice(-tail)
+  if (h.length <= head + tail) return h
+  return h.slice(0, head) + '…' + h.slice(-tail)
 }

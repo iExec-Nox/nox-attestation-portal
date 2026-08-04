@@ -21,11 +21,12 @@ export const SecondaryButton = ({
   style?: CSSProperties
 }) => {
   const sz = { sm: { h: 30, fs: 12, px: 12 }, md: { h: 36, fs: 13, px: 14 } }[size]
+  const isDisabled = disabled || loading
   return (
     <button
       type="button"
       onClick={onClick}
-      disabled={disabled || loading}
+      disabled={isDisabled}
       style={{
         height: sz.h,
         padding: `0 ${sz.px}px`,
@@ -38,8 +39,8 @@ export const SecondaryButton = ({
         display: 'inline-flex',
         alignItems: 'center',
         gap: 6,
-        cursor: disabled || loading ? 'default' : 'pointer',
-        opacity: disabled ? 0.5 : 1,
+        cursor: isDisabled ? 'default' : 'pointer',
+        opacity: isDisabled ? 0.5 : 1,
         flexShrink: 0,
         ...style,
       }}

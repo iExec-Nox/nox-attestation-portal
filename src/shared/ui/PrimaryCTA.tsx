@@ -27,11 +27,12 @@ export const PrimaryCTA = ({
     md: { h: 40, fs: 14, px: 18 },
     lg: { h: 48, fs: 15, px: 22 },
   }[size]
+  const isDisabled = disabled || loading
   return (
     <button
       type="button"
       onClick={onClick}
-      disabled={disabled || loading}
+      disabled={isDisabled}
       style={{
         height: sz.h,
         padding: `0 ${sz.px}px`,
@@ -39,7 +40,7 @@ export const PrimaryCTA = ({
         borderRadius: 12,
         background: 'var(--ct-brand)',
         border: 0,
-        boxShadow: disabled ? 'none' : 'var(--ct-shadow-glow)',
+        boxShadow: isDisabled ? 'none' : 'var(--ct-shadow-glow)',
         color: '#fff',
         font: `700 ${sz.fs}px/1 var(--ct-font-display)`,
         letterSpacing: '0.2px',
@@ -47,8 +48,8 @@ export const PrimaryCTA = ({
         alignItems: 'center',
         justifyContent: 'center',
         gap: 8,
-        cursor: disabled || loading ? 'default' : 'pointer',
-        opacity: disabled ? 0.4 : 1,
+        cursor: isDisabled ? 'default' : 'pointer',
+        opacity: isDisabled ? 0.4 : 1,
         transition: 'opacity 150ms ease',
         flexShrink: 0,
         ...style,
