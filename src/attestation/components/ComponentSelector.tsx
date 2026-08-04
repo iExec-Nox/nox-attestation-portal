@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react'
 import type { CvmInfo } from '../types/index.ts'
 import { fetchCvms } from '../services/quote-service.ts'
 import {
+  ErrorState,
   MatIcon,
   PrimaryCTA,
   SecondaryButton,
+  Spinner,
   Eyebrow,
   formatAgo,
   getComponentIcon,
@@ -276,13 +278,24 @@ export function ComponentSelector({
   const [retryKey, setRetryKey] = useState(0)
 
   useEffect(() => {
+    let cancelled = false
     fetchCvms(challenge)
       .then((data) => {
+        if (cancelled) return
         setCvms(data)
         onCvmsLoaded(data)
       })
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)))
-      .finally(() => setLoading(false))
+      .catch((e: unknown) => {
+        if (cancelled) return
+        setError(e instanceof Error ? e.message : String(e))
+      })
+      .finally(() => {
+        if (cancelled) return
+        setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [challenge, onCvmsLoaded, retryKey])
 
   const noPendingInstances =
@@ -317,102 +330,51 @@ export function ComponentSelector({
           ))}
       </div>
 
-      {/* Loading skeletons */}
+      {/* Loading state */}
       {loading && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {[1, 2, 3].map((i) => (
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 14,
+            padding: '48px 18px',
+            borderRadius: 16,
+            background: 'rgba(255,255,255,0.025)',
+            border: '1px solid rgba(255,255,255,0.07)',
+          }}
+        >
+          <Spinner size={36} label="Loading NOX components" />
+          <div style={{ textAlign: 'center' }}>
             <div
-              key={i}
               style={{
-                height: 116,
-                borderRadius: 16,
-                background: 'rgba(255,255,255,0.025)',
-                border: '1px solid rgba(255,255,255,0.07)',
-                animation: 'badge-pulse 1.5s ease-in-out infinite',
+                font: '600 13px/18px var(--ct-font-display)',
+                color: 'var(--ct-fg-2)',
+                marginBottom: 4,
               }}
-            />
-          ))}
+            >
+              Loading NOX components…
+            </div>
+            <div style={{ font: '400 12px/18px var(--ct-font-ui)', color: 'var(--ct-fg-4)' }}>
+              Fetching attestation quotes, this can take a few seconds.
+            </div>
+          </div>
         </div>
       )}
 
       {/* Error state */}
       {error && (
-        <div
-          style={{
-            padding: '16px 18px',
-            borderRadius: 16,
-            background: 'rgba(248,113,113,0.06)',
-            border: '1px solid rgba(248,113,113,0.20)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 12,
+        <ErrorState
+          title="Service unavailable"
+          message={friendlyError(error)}
+          icon="cloud_off"
+          onRetry={() => {
+            setError(null)
+            setLoading(true)
+            setRetryKey((k) => k + 1)
           }}
-        >
-          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-            <div
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 10,
-                background: 'rgba(248,113,113,0.12)',
-                border: '1px solid rgba(248,113,113,0.25)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-                color: '#F87171',
-              }}
-            >
-              <MatIcon name="cloud_off" size={16} />
-            </div>
-            <div>
-              <div
-                style={{
-                  font: '600 13px/18px var(--ct-font-display)',
-                  color: '#FCA5A5',
-                  marginBottom: 4,
-                }}
-              >
-                Service unavailable
-              </div>
-              <div
-                style={{
-                  font: '400 12px/18px var(--ct-font-ui)',
-                  color: 'rgba(252,165,165,0.7)',
-                }}
-              >
-                {friendlyError(error)}
-              </div>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              setError(null)
-              setLoading(true)
-              setRetryKey((k) => k + 1)
-            }}
-            style={{
-              alignSelf: 'flex-start',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              height: 30,
-              padding: '0 12px',
-              borderRadius: 8,
-              background: 'rgba(248,113,113,0.10)',
-              border: '1px solid rgba(248,113,113,0.25)',
-              color: '#FCA5A5',
-              font: '600 12px/1 var(--ct-font-display)',
-              cursor: 'pointer',
-              letterSpacing: '0.1px',
-            }}
-          >
-            <MatIcon name="refresh" size={14} />
-            Retry
-          </button>
-        </div>
+        />
       )}
 
       {/* Component cards */}
