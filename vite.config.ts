@@ -27,11 +27,20 @@ export default defineConfig(({ mode }) => {
       },
       proxy: {
         ...(cvmsUrl && {
+          // More specific first: the on-demand attestation endpoint keeps its
+          // `/attestations` suffix. It must precede `/api/cvms` (a prefix of it),
+          // whose rewrite would otherwise strip the suffix. Dev-only — `vite build`
+          // ignores `server`, so this has no effect on the Vercel deployment.
+          '/api/cvms/attestations': {
+            target: cvmsUrl.origin,
+            changeOrigin: true,
+            rewrite: () => `${cvmsUrl.pathname.replace(/\/$/, '')}/attestations`,
+          },
           '/api/cvms': {
             target: cvmsUrl.origin,
             changeOrigin: true,
-            // Preserve the incoming query string (e.g. `?challenge=…`) — only the
-            // path is rewritten to the configured CVMS endpoint.
+            // Preserve the incoming query string — only the path is rewritten to
+            // the configured CVMS endpoint.
             rewrite: (path) => {
               const queryIndex = path.indexOf('?')
               const query = queryIndex === -1 ? '' : path.slice(queryIndex)
