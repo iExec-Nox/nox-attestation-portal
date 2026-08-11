@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAttestation } from '../hooks/useAttestation.ts'
 import { AttestationVerifier, makeInitialSteps } from '../services/verifier.ts'
+import { fetchAttestations } from '../services/quote-service.ts'
 import { bytesToHex } from '../../shared/lib/utils.ts'
 import { ComponentSelector } from './ComponentSelector.tsx'
 import { ComponentView } from './ComponentView.tsx'
@@ -9,11 +10,17 @@ import { TopBar } from '../../shared/layout/TopBar.tsx'
 import { type Status } from '../../shared/ui/index.tsx'
 import type {
   AttestationResult,
+  AttestationTarget,
   ComponentRecord,
   CvmInfo,
   InstanceInfo,
   StepResult,
 } from '../types/index.ts'
+
+/** Generates a fresh 32-byte verifier nonce (hex) for a single verify action. */
+function freshChallenge(): string {
+  return bytesToHex(crypto.getRandomValues(new Uint8Array(32)))
+}
 
 function useIsMobile(): boolean {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 800)
@@ -47,9 +54,6 @@ export function AttestationPortal() {
   const [verifyingAll, setVerifyingAll] = useState(false)
   const [bgProgress, setBgProgress] = useState<Record<string, number>>({})
   const [bgSteps, setBgSteps] = useState<Record<string, StepResult[]>>({})
-  // One challenge (verifier nonce) per page load: sent to the aggregator so the
-  // quotes it returns are bound to it, and reused for every verification below.
-  const [challenge] = useState(() => bytesToHex(crypto.getRandomValues(new Uint8Array(32))))
 
   const getInstanceStatus = useCallback(
     (instanceId: string): Status => {
@@ -133,6 +137,49 @@ export function AttestationPortal() {
     return map
   }, [cvms])
 
+  // Reverse index instance_id → owning CVM, so a per-instance verify can build the
+  // attestation target (`app_id`/`name` come from the owner, not the instance).
+  const cvmByInstanceId = useMemo(() => {
+    const map = new Map<string, CvmInfo>()
+    for (const cvm of cvms) {
+      for (const instance of cvm.instances) {
+        map.set(instance.instance_id, cvm)
+      }
+    }
+    return map
+  }, [cvms])
+
+  // Fetches fresh attestation data (quote + compose) for the given targets in a
+  // single call, bound to a fresh challenge. Returns the challenge used (the
+  // verifier's report-data step checks it) and the enriched instances by id.
+  const attest = useCallback(
+    async (
+      targets: AttestationTarget[],
+    ): Promise<{ challenge: string; byId: Map<string, InstanceInfo> }> => {
+      const challenge = freshChallenge()
+      const enriched = await fetchAttestations(challenge, targets)
+      const byId = new Map<string, InstanceInfo>()
+      for (const cvm of enriched) {
+        for (const instance of cvm.instances) {
+          byId.set(instance.instance_id, instance)
+        }
+      }
+      return { challenge, byId }
+    },
+    [],
+  )
+
+  // Slots freshly-fetched quote/compose back into `cvms`, so the quote row and
+  // subsequent lookups see the attested data (instances not in `byId` are kept).
+  const mergeEnriched = useCallback((byId: Map<string, InstanceInfo>) => {
+    setCvms((prev) =>
+      prev.map((cvm) => ({
+        ...cvm,
+        instances: cvm.instances.map((i) => byId.get(i.instance_id) ?? i),
+      })),
+    )
+  }, [])
+
   const getInstanceQuote = useCallback(
     (instanceId: string): string | undefined => {
       if (selectedInstance?.instance_id === instanceId && result?.quoteHex) {
@@ -143,7 +190,9 @@ export function AttestationPortal() {
     [selectedInstance, result, instancesById],
   )
 
-  // Quotes arrive with the CVM list, so there is no separate quote-loading state.
+  // A quote is fetched on demand as part of verifying, and the verify button
+  // already reflects that in-progress state — so there is no separate
+  // quote-loading indicator.
   const isInstanceQuoteLoading = useCallback((): boolean => false, [])
 
   const getInstanceSteps = useCallback(
@@ -172,7 +221,20 @@ export function AttestationPortal() {
 
   const handleVerifyInstance = useCallback(
     async (instance: InstanceInfo) => {
-      const attestResult = await run(instance, challenge)
+      const owner = cvmByInstanceId.get(instance.instance_id)
+      if (!owner) return
+      const target: AttestationTarget = {
+        app_id: owner.app_id,
+        name: owner.name,
+        instance_id: instance.instance_id,
+        machine_id: instance.machine_id,
+      }
+      // Fetch this instance's quote + compose on demand (fresh challenge), slot it
+      // back into `cvms`, then verify the now-enriched instance locally.
+      const { challenge, byId } = await attest([target])
+      mergeEnriched(byId)
+      const enriched = byId.get(instance.instance_id) ?? instance
+      const attestResult = await run(enriched, challenge)
       if (!attestResult) return
       const now = Date.now()
       setHistory((prev) => ({
@@ -184,7 +246,7 @@ export function AttestationPortal() {
         },
       }))
     },
-    [run, challenge],
+    [run, attest, mergeEnriched, cvmByInstanceId],
   )
 
   const handleVerifyAll = useCallback(
@@ -193,58 +255,103 @@ export function AttestationPortal() {
       setVerifyingAll(true)
 
       const allInstances = allCvms.flatMap((cvm) => cvm.instances)
-      const promises = allInstances.map(async (instance) => {
-        setBgProgress((prev) => ({ ...prev, [instance.instance_id]: 0 }))
-        const verifier = new AttestationVerifier(
-          buildStepUpdateCb(instance.instance_id, setBgProgress, setBgSteps),
-        )
-        try {
-          const attestResult = await verifier.verify(instance, challenge)
-          const now = Date.now()
-          setHistory((prev) => ({
-            ...prev,
-            [instance.instance_id]: {
-              status: attestResult.status,
-              completedAt: now,
-              result: attestResult,
-            },
-          }))
-        } catch (err) {
-          // Unexpected throw (e.g. JSON.parse error) — record a failed result so
-          // the instance shows the error instead of silently reverting to pending.
-          setHistory((prev) => ({
-            ...prev,
-            [instance.instance_id]: {
-              status: 'failed',
-              completedAt: Date.now(),
-              result: {
-                status: 'failed',
-                steps: makeInitialSteps(),
-                errorMessage: err instanceof Error ? err.message : String(err),
-              },
-            },
-          }))
-        } finally {
-          setBgProgress((prev) => {
-            const next = { ...prev }
-            delete next[instance.instance_id]
-            return next
-          })
-          setBgSteps((prev) => {
-            const next = { ...prev }
-            delete next[instance.instance_id]
-            return next
-          })
-        }
+      // Show every targeted instance as in-progress while the attestation fetch
+      // (a single POST for all of them) is in flight.
+      setBgProgress((prev) => {
+        const next = { ...prev }
+        for (const instance of allInstances) next[instance.instance_id] = 0
+        return next
       })
 
       try {
+        const targets: AttestationTarget[] = allCvms.flatMap((cvm) =>
+          cvm.instances.map((instance) => ({
+            app_id: cvm.app_id,
+            name: cvm.name,
+            instance_id: instance.instance_id,
+            machine_id: instance.machine_id,
+          })),
+        )
+        const { challenge, byId } = await attest(targets)
+        mergeEnriched(byId)
+
+        const promises = allInstances.map(async (instance) => {
+          const enriched = byId.get(instance.instance_id) ?? instance
+          const verifier = new AttestationVerifier(
+            buildStepUpdateCb(instance.instance_id, setBgProgress, setBgSteps),
+          )
+          try {
+            const attestResult = await verifier.verify(enriched, challenge)
+            const now = Date.now()
+            setHistory((prev) => ({
+              ...prev,
+              [instance.instance_id]: {
+                status: attestResult.status,
+                completedAt: now,
+                result: attestResult,
+              },
+            }))
+          } catch (err) {
+            // Unexpected throw (e.g. JSON.parse error) — record a failed result so
+            // the instance shows the error instead of silently reverting to pending.
+            setHistory((prev) => ({
+              ...prev,
+              [instance.instance_id]: {
+                status: 'failed',
+                completedAt: Date.now(),
+                result: {
+                  status: 'failed',
+                  steps: makeInitialSteps(),
+                  errorMessage: err instanceof Error ? err.message : String(err),
+                },
+              },
+            }))
+          } finally {
+            setBgProgress((prev) => {
+              const next = { ...prev }
+              delete next[instance.instance_id]
+              return next
+            })
+            setBgSteps((prev) => {
+              const next = { ...prev }
+              delete next[instance.instance_id]
+              return next
+            })
+          }
+        })
+
         await Promise.all(promises)
+      } catch (err) {
+        // The attestation fetch itself failed — mark every targeted instance as
+        // failed and clear their in-progress state.
+        const now = Date.now()
+        const errorMessage = err instanceof Error ? err.message : String(err)
+        setHistory((prev) => {
+          const next = { ...prev }
+          for (const instance of allInstances) {
+            next[instance.instance_id] = {
+              status: 'failed',
+              completedAt: now,
+              result: { status: 'failed', steps: makeInitialSteps(), errorMessage },
+            }
+          }
+          return next
+        })
+        setBgProgress((prev) => {
+          const next = { ...prev }
+          for (const instance of allInstances) delete next[instance.instance_id]
+          return next
+        })
+        setBgSteps((prev) => {
+          const next = { ...prev }
+          for (const instance of allInstances) delete next[instance.instance_id]
+          return next
+        })
       } finally {
         setVerifyingAll(false)
       }
     },
-    [status, verifyingAll, challenge],
+    [status, verifyingAll, attest, mergeEnriched],
   )
 
   const handleVerifyAllInstances = useCallback(() => {
