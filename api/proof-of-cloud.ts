@@ -5,9 +5,9 @@ export default async function handler(request: Request): Promise<Response> {
     return Response.json({ error: 'Method not allowed' }, { status: 405 })
   }
 
-  const pocUrl = process.env.PROOF_OF_CLOUD_URL || process.env.VITE_PROOF_OF_CLOUD_URL
+  const pocUrl = process.env.VITE_PROOF_OF_CLOUD_URL
   if (!pocUrl) {
-    return Response.json({ error: 'PROOF_OF_CLOUD_URL not configured' }, { status: 500 })
+    return Response.json({ error: 'VITE_PROOF_OF_CLOUD_URL not configured' }, { status: 500 })
   }
 
   try {
