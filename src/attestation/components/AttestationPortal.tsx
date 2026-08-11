@@ -57,13 +57,15 @@ export function AttestationPortal() {
 
   const getInstanceStatus = useCallback(
     (instanceId: string): Status => {
+      // An in-flight verification (single verify or verify-all, incl. the on-demand
+      // quote fetch) wins over any prior selection/history state.
+      if (instanceId in bgProgress) return 'verifying'
       if (selectedInstance?.instance_id === instanceId) {
         if (status === 'verifying') return 'verifying'
         const rec = history[instanceId]
         if (rec) return rec.status
         return status
       }
-      if (instanceId in bgProgress) return 'verifying'
       const rec = history[instanceId]
       if (rec) return rec.status
       return 'pending'
@@ -229,22 +231,47 @@ export function AttestationPortal() {
         instance_id: instance.instance_id,
         machine_id: instance.machine_id,
       }
-      // Fetch this instance's quote + compose on demand (fresh challenge), slot it
-      // back into `cvms`, then verify the now-enriched instance locally.
-      const { challenge, byId } = await attest([target])
-      mergeEnriched(byId)
-      const enriched = byId.get(instance.instance_id) ?? instance
-      const attestResult = await run(enriched, challenge)
-      if (!attestResult) return
-      const now = Date.now()
-      setHistory((prev) => ({
-        ...prev,
-        [instance.instance_id]: {
-          status: attestResult.status,
-          completedAt: now,
-          result: attestResult,
-        },
-      }))
+      // Show the instance as in-progress immediately, while the attestation fetch
+      // (POST) is in flight — `run` only flips to "verifying" once it resolves.
+      setBgProgress((prev) => ({ ...prev, [instance.instance_id]: 0 }))
+      try {
+        // Fetch this instance's quote + compose on demand (fresh challenge), slot
+        // it back into `cvms`, then verify the now-enriched instance locally.
+        const { challenge, byId } = await attest([target])
+        mergeEnriched(byId)
+        const enriched = byId.get(instance.instance_id) ?? instance
+        const attestResult = await run(enriched, challenge)
+        if (!attestResult) return
+        setHistory((prev) => ({
+          ...prev,
+          [instance.instance_id]: {
+            status: attestResult.status,
+            completedAt: Date.now(),
+            result: attestResult,
+          },
+        }))
+      } catch (err) {
+        // The attestation fetch itself failed — record a failed result instead of
+        // silently reverting to pending.
+        setHistory((prev) => ({
+          ...prev,
+          [instance.instance_id]: {
+            status: 'failed',
+            completedAt: Date.now(),
+            result: {
+              status: 'failed',
+              steps: makeInitialSteps(),
+              errorMessage: err instanceof Error ? err.message : String(err),
+            },
+          },
+        }))
+      } finally {
+        setBgProgress((prev) => {
+          const next = { ...prev }
+          delete next[instance.instance_id]
+          return next
+        })
+      }
     },
     [run, attest, mergeEnriched, cvmByInstanceId],
   )
