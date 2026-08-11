@@ -1,10 +1,12 @@
 # NOX Attestation Explorer
 
-A web interface for verifying the integrity of [NOX Protocol](https://docs.noxprotocol.io/getting-started/welcome) components running inside Intel TDX Confidential VMs (CVMs). It obtains TDX quotes from the aggregator, replays the RTMR measurement chain, and presents a step-by-step attestation report.
+A web interface for verifying the integrity of [NOX Protocol](https://docs.noxprotocol.io/getting-started/welcome) components running inside Intel TDX Confidential VMs (CVMs). It obtains TDX quotes from the aggregator on demand, replays the RTMR measurement chain, and presents a step-by-step attestation report.
 
 ## What it does
 
-The explorer generates a random challenge (freshness nonce) on load and fetches the CVM list from the aggregator (`/api/cvms?challenge=…`). The aggregator relays that challenge to each CVM and returns, for every instance, its TDX quote (bound to the challenge) and its compose manifest — so the browser never contacts the CVMs directly. The explorer then verifies each quote through a 6-step pipeline:
+On load, the explorer fetches a **lightweight CVM listing** from the aggregator (`GET /api/cvms`) — the active components and their instances only, with no attestation data, so the initial load stays small.
+
+When you verify a CVM — a single instance, all instances of a component, or everything — the explorer generates a **fresh challenge** (freshness nonce) for that action and requests attestation data **on demand** (`POST /api/cvms/attestations`) for exactly the selected instances. The aggregator relays that challenge to each targeted CVM and returns its TDX quote (bound to the challenge) and its compose manifest — so the browser never contacts the CVMs directly. The explorer then verifies each quote through a 6-step pipeline:
 
 | Step | Name                    | What is checked                                            |
 | ---- | ----------------------- | ---------------------------------------------------------- |
@@ -47,12 +49,16 @@ npm run test:coverage  # Vitest with V8 coverage
 
 ## Environment
 
-The app expects a `/api/cvms` proxy endpoint that returns the list of CVM instances,
-each with its quote and compose manifest embedded (served by the aggregator).
-In development, Vite's proxy (`vite.config.ts`, driven by `CVMS_URL`) forwards requests
-to the aggregator. The proxy **must preserve the query string**, since the `challenge`
-is passed as `/api/cvms?challenge=…`; the same requirement applies to whatever proxy
-fronts `/api/cvms` in production.
+The app talks to two aggregator-backed proxy endpoints, served by the edge functions
+under `api/`:
+
+- `GET /api/cvms` — the lightweight CVM listing (no attestation data).
+- `POST /api/cvms/attestations` — on-demand quote + compose for a selected set of
+  instances, with a fresh `challenge` in the JSON request body.
+
+Both forward to the aggregator via `VITE_CVMS_URL` (the aggregator's `/cvms` endpoint);
+the attestation relay derives its upstream by suffixing `/attestations`. Separately,
+`VITE_PROOF_OF_CLOUD_URL` backs `/api/proof-of-cloud`.
 
 ## Project structure
 
