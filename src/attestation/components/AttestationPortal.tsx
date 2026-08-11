@@ -286,7 +286,6 @@ export function AttestationPortal() {
       >
         <div style={{ position: isMobile ? 'static' : 'sticky', top: 70, alignSelf: 'start' }}>
           <ComponentSelector
-            challenge={challenge}
             selected={selectedCvm}
             onSelect={handleSelect}
             onCvmsLoaded={handleCvmsLoaded}
