@@ -3,16 +3,35 @@ import type { ResolvedImageAttestation } from '../config/image-attestation-map.t
 export interface InstanceInfo {
   instance_id: string
   machine_id: string
-  /** Attestation quote fetched by the aggregator, bound to our challenge. */
-  quote: QuoteData
-  /** Docker-compose manifest, provided by the aggregator (from the CVM `/info`). */
-  app_compose: string
+  /**
+   * Attestation quote, bound to a fresh challenge. Absent in the lightweight
+   * listing (`GET /cvms`); populated on demand once the instance is attested
+   * (`POST /cvms/attestations`).
+   */
+  quote?: QuoteData
+  /**
+   * Docker-compose manifest (from the CVM `/info`). Absent in the listing;
+   * populated together with `quote` on attestation.
+   */
+  app_compose?: string
 }
 
 export interface CvmInfo {
   app_id: string
   name: string
   instances: InstanceInfo[]
+}
+
+/**
+ * One instance selected for on-demand attestation, echoed back from the listing.
+ * `instance_id` + `machine_id` address the CVM; `app_id` + `name` let the
+ * aggregator regroup the response.
+ */
+export interface AttestationTarget {
+  app_id: string
+  name: string
+  instance_id: string
+  machine_id: string
 }
 
 /**

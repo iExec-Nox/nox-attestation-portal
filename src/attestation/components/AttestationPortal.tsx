@@ -138,7 +138,7 @@ export function AttestationPortal() {
       if (selectedInstance?.instance_id === instanceId && result?.quoteHex) {
         return result.quoteHex
       }
-      return instancesById.get(instanceId)?.quote.quote
+      return instancesById.get(instanceId)?.quote?.quote
     },
     [selectedInstance, result, instancesById],
   )
