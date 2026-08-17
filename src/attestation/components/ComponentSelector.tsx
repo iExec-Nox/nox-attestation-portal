@@ -15,7 +15,6 @@ import {
 } from '../../shared/ui/index.tsx'
 
 interface ComponentsListProps {
-  challenge: string
   selected: CvmInfo | null
   onSelect: (cvm: CvmInfo) => void
   onCvmsLoaded: (cvms: CvmInfo[]) => void
@@ -261,7 +260,6 @@ function friendlyError(raw: string): string {
 }
 
 export function ComponentSelector({
-  challenge,
   selected,
   onSelect,
   onCvmsLoaded,
@@ -279,7 +277,7 @@ export function ComponentSelector({
 
   useEffect(() => {
     let cancelled = false
-    fetchCvms(challenge)
+    fetchCvms()
       .then((data) => {
         if (cancelled) return
         setCvms(data)
@@ -296,7 +294,7 @@ export function ComponentSelector({
     return () => {
       cancelled = true
     }
-  }, [challenge, onCvmsLoaded, retryKey])
+  }, [onCvmsLoaded, retryKey])
 
   const noPendingInstances =
     !loading &&
@@ -357,7 +355,7 @@ export function ComponentSelector({
               Loading NOX components…
             </div>
             <div style={{ font: '400 12px/18px var(--ct-font-ui)', color: 'var(--ct-fg-4)' }}>
-              Fetching attestation quotes, this can take a few seconds.
+              Discovering active CVMs across nodes.
             </div>
           </div>
         </div>
