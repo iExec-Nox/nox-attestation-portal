@@ -20,6 +20,14 @@ const COMPONENT_META = [
     icon: 'replay',
     desc: 'On-demand gap recovery, republishing historical NoxCompute blocks to NATS JetStream in the NOX Protocol.',
   },
+  // Keep after `nox-ingestor-replayer`: lookups take the first `includes` match,
+  // and this key also matches the replayer's name — putting it first would give
+  // the replayer this entry and make its own unreachable.
+  {
+    key: 'nox-ingestor',
+    icon: 'sensors',
+    desc: 'Chain listener streaming NoxCompute events to NATS JetStream in the NOX Protocol.',
+  },
 ] as const
 
 export function getComponentIcon(name: string): string {
