@@ -1,12 +1,7 @@
 /* ── Component meta: icons + descriptions per NOX service type ── */
 const COMPONENT_META = [
   {
-    key: 'nox-gateway-journal',
-    icon: 'menu_book',
-    desc: 'Append-only audit journal mirroring the gateway in the NOX Protocol.',
-  },
-  {
-    key: 'nox-gateway',
+    key: 'nox-handle-gateway',
     icon: 'hub',
     desc: 'REST gateway for encrypted value storage and delegation in the NOX Protocol.',
   },
