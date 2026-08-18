@@ -20,6 +20,11 @@ const COMPONENT_META = [
     icon: 'settings_suggest',
     desc: 'Off-chain computation worker for confidential operations in the NOX Protocol.',
   },
+  {
+    key: 'nox-ingestor-replayer',
+    icon: 'replay',
+    desc: 'On-demand gap recovery, republishing historical NoxCompute blocks to NATS JetStream in the NOX Protocol.',
+  },
 ] as const
 
 export function getComponentIcon(name: string): string {
