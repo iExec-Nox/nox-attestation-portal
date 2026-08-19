@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.1.0-beta.4](https://github.com/iExec-Nox/nox-attestation-portal/compare/v1.1.0-beta.3...v1.1.0-beta.4) (2026-08-19)
+
+
+### 🚀 Added
+
+* add nox-ingestor-replay entries ([dfcd815](https://github.com/iExec-Nox/nox-attestation-portal/commit/dfcd815d44b36cf9a0edf51196602e5e92a89787))
+* add on-demand attestations data layer and relay ([d23240c](https://github.com/iExec-Nox/nox-attestation-portal/commit/d23240cbc9c34684483666966aa06fd379246b15))
+* fetch quotes on demand per verify with a fresh challenge ([faad014](https://github.com/iExec-Nox/nox-attestation-portal/commit/faad01473e5eaa7d593d16b941e1070129871c9f))
+* load a lightweight cvm listing without quotes ([451c218](https://github.com/iExec-Nox/nox-attestation-portal/commit/451c21828154fdaeeb10e965ebe1bf820f98f538))
+
+
+### ✍️ Changed
+
+* add missiong nox-handle-gateway entry and remove bad entries ([9761fed](https://github.com/iExec-Nox/nox-attestation-portal/commit/9761fed8e48690e87069bd713d0a4fe18c9c53c0))
+* add nox-ingestor entry ([3d79352](https://github.com/iExec-Nox/nox-attestation-portal/commit/3d7935215f90cd4ec83314962f5a3becdc8a368f))
+* read proof-of-cloud url from vite_proof_of_cloud_url only ([32a4197](https://github.com/iExec-Nox/nox-attestation-portal/commit/32a41979d25f2dca9eae34127cda445c152b5e66))
+* show instance as verifying during the on-demand quote fetch ([7044091](https://github.com/iExec-Nox/nox-attestation-portal/commit/70440914c0c3646ce0f216dcd4c3ae0ce47a97dd))
+
+
+### 📋 Misc
+
+* route /api/cvms/attestations through the vite dev proxy ([3f3d711](https://github.com/iExec-Nox/nox-attestation-portal/commit/3f3d711f9d19849b84cf43e8423fcfa85ab46740))
+
 ## [1.1.0-beta.3](https://github.com/iExec-Nox/nox-attestation-portal/compare/v1.1.0-beta.2...v1.1.0-beta.3) (2026-08-04)
 
 
