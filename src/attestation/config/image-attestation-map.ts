@@ -45,6 +45,9 @@ export const IMAGE_ATTESTATION_MAP: ImageAttestationConfig = {
     'docker-regis.iex.ec/nox-ingestor': {
       attestationRepo: 'iExec-Nox/nox-ingestor',
     },
+    'docker-regis.iex.ec/nox-ingestor-replayer': {
+      attestationRepo: 'iExec-Nox/nox-ingestor-replayer',
+    },
     'docker-regis.iex.ec/dstack-quote-service': {
       attestationRepo: 'iExec-Nox/dstack-quote-service',
     },
